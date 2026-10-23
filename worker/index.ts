@@ -74,11 +74,44 @@ async function analyze(ip:string,env:Env){
  const flags={vt_score_red:score>0,vt_vendors_red:score>0,abuse_reports_red:rep>10,alien_pulses_red:Number(o.data["Pulse Info Count"]??0)>0,ipqs_tor_red:q.data.TOR===true};
  return {ip,summary,flags,sources,report_text:format(ip,sources)};
 }
+async function diagnoseIPQS(env:Env) {
+ const raw=env.IPQ_API;
+ if(!raw)return {configured:false,stage:"missing-secret"};
+ const key=raw.trim();
+ if(!key)return {configured:false,stage:"empty-secret"};
+ const base=urls.ipqs+encodeURIComponent(key)+"/1.1.1.1";
+ const cases:[string,string,Record<string,string>][]=[
+  ["minimal-url",base,{}],
+  ["with-parameters",base+"?strictness=1&fast=true&allow_public_access_points=true&lighter_penalties=true",{}],
+  ["header-auth","https://www.ipqualityscore.com/api/json/ip?ip=1.1.1.1",{"IPQS-KEY":key}]
+ ];
+ const attempts=[];
+ for(const [method,url,headers] of cases){
+   try{
+     const response=await fetch(url,{headers,signal:AbortSignal.timeout(10000),redirect:"manual"});
+     const rawText=await response.text();
+     let obj:Record<string,unknown>={};
+     try{obj=JSON.parse(rawText) as Record<string,unknown>;}catch{}
+     const message=String(obj.message??"").replace(/https?:\/\/\S+/g,"[URL]").slice(0,170);
+     attempts.push({method,httpStatus:response.status,success:obj.success===true,message,hasFraudScore:typeof obj.fraud_score==="number"});
+   }catch(error){
+     // Never serialize the error object: upstream errors can include the credential-bearing URL.
+     attempts.push({method,transportError:true});
+   }
+ }
+ return {configured:true,attempts};
+}
 export default {async fetch(req:Request,env:Env):Promise<Response>{
  const origin=req.headers.get("Origin")??"";const allowed=env.ALLOWED_ORIGIN||"https://jmarf37.github.io";
  const headers={"Access-Control-Allow-Origin":allowed,"Vary":"Origin","Access-Control-Allow-Methods":"POST, OPTIONS","Access-Control-Allow-Headers":"Content-Type","Cache-Control":"no-store","Content-Type":"application/json; charset=utf-8"};
  const response=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers});
  const u=new URL(req.url);if(u.pathname==="/health")return response({ok:true,service:"monkeytools-ip"});
+ if(u.pathname==="/api/ipqs/diagnostic"){
+   if(origin!==allowed)return response({error:"Origen no permitido"},403);
+   if(req.method==="OPTIONS")return new Response(null,{status:204,headers});
+   if(req.method!=="POST")return response({error:"Método no permitido"},405);
+   return response(await diagnoseIPQS(env));
+ }
  if(u.pathname!=="/api/ip/analyze")return response({error:"Ruta no encontrada"},404);
  if(origin!==allowed)return response({error:"Origen no permitido"},403);
  if(req.method==="OPTIONS")return new Response(null,{status:204,headers});
