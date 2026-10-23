@@ -6,11 +6,14 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check:worker": "tsc --noEmit -p worker/tsconfig.json"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",
     "typescript": "~5.9.3",
-    "vite": "^7.1.0"
+    "vite": "^7.1.0",
+    "@cloudflare/workers-types": "^4.20261001.0",
+    "wrangler": "^4.0.0"
   }
 }
