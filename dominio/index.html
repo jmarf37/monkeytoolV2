@@ -8,7 +8,7 @@
 <header class="heading"><p class="eyebrow">MONKEYTOOLS V2 · LABORATORIO</p><h1 class="module-title">Análisis reputacional de dominios</h1><p class="author">by Makako Team</p></header>
 <section class="panel"><form id="domain-form"><label for="domains"><strong>Dominios a analizar</strong></label><p>Máximo 5, separados por saltos de línea, espacios o comas.</p>
 <textarea id="domains" class="domain-area" required placeholder="example.com&#10;google.com"></textarea>
-<label for="worker-url"><strong>URL de Cloudflare Worker (dominios)</strong></label><input id="worker-url" type="url" class="domain-url" placeholder="https://monkeytoolv2-domain.TU_SUBDOMINIO.workers.dev" required>
+<label for="worker-url"><strong>URL de Cloudflare Worker (dominios)</strong></label><input id="worker-url" type="url" class="domain-url" value="https://monkeytoolv2-domain.jesusmartinezferrer.workers.dev" placeholder="https://monkeytoolv2-domain.jesusmartinezferrer.workers.dev" required>
 <p class="notice">Worker independiente del analizador IP. Las claves API se almacenarán exclusivamente en Cloudflare.</p>
 <button type="submit" class="domain-submit">Analizar dominios</button><p id="domain-status" role="status" aria-live="polite"></p>
 </form></section><section id="domain-results" aria-live="polite"></section>
