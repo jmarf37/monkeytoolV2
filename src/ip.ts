@@ -1,7 +1,7 @@
 type Result={ip:string;summary:Record<string,unknown>;flags:Record<string,boolean>;report_text:string;sources:Record<string,{data:Record<string,unknown>;error?:string}>};
 const form=document.querySelector<HTMLFormElement>("#ip-form");
 const output=document.querySelector<HTMLElement>("#results");
-const status=document.querySelector<HTMLElement>("#ip-status");
+const statusElement=document.querySelector<HTMLElement>("#ip-status");
 const endpointInput=document.querySelector<HTMLInputElement>("#api-endpoint");
 const submit=form?.querySelector<HTMLButtonElement>("button[type=submit]");
 const labels=["Virustotal Community Score","Security Vendors Flagged","AbuseIPDB Reports","AbuseIPDB Confidence","AlienVault Pulses","IPQS TOR","IPQS Fraud Score","Blacklist S2Grupo","RDAP Owner (heuristic)","Country"];
@@ -18,16 +18,16 @@ function render(result:Result){
  summary.append(copy);details.append(summary,el("pre","report-text",result.report_text));card.append(details);return card;
 }
 form?.addEventListener("submit",async(event)=>{
- event.preventDefault();if(!output||!status||!submit)return;
+ event.preventDefault();if(!output||!statusElement||!submit)return;
  const input=(form.querySelector<HTMLTextAreaElement>("#ips")?.value??"").trim();
  const endpoint=endpointInput?.value.trim().replace(/\/+$/,"")??"";
- if(!endpoint){status.textContent="Debes indicar la URL de tu Cloudflare Worker cuando esté desplegado.";return;}
- if(!/^https:\/\/[a-z0-9.-]+$/i.test(endpoint)){status.textContent="La URL debe ser HTTPS y contener solo el dominio del Worker.";return;}
- submit.disabled=true;status.textContent="Consultando fuentes de reputación...";output.replaceChildren();
+ if(!endpoint){statusElement.textContent="Debes indicar la URL de tu Cloudflare Worker cuando esté desplegado.";return;}
+ if(!/^https:\/\/[a-z0-9.-]+$/i.test(endpoint)){statusElement.textContent="La URL debe ser HTTPS y contener solo el dominio del Worker.";return;}
+ submit.disabled=true;statusElement.textContent="Consultando fuentes de reputación...";output.replaceChildren();
  try{const res=await fetch(endpoint+"/api/ip/analyze",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ips:input})});const body=await res.json();if(!res.ok)throw new Error(body.error??"HTTP "+res.status);
  const errors=Array.isArray(body.errors)?body.errors:[];for(const error of errors)output.append(el("p","danger",String(error)));
  const results=Array.isArray(body.results)?body.results as Result[]:[];for(const r of results)output.append(render(r));
- status.textContent=results.length+" IP analizadas. "+errors.length+" entradas inválidas.";
- }catch(e){status.textContent="No se pudo consultar el Worker: "+(e instanceof Error?e.message:String(e))+". Comprueba la URL, el despliegue y CORS.";}
+ statusElement.textContent=results.length+" IP analizadas. "+errors.length+" entradas inválidas.";
+ }catch(e){statusElement.textContent="No se pudo consultar el Worker: "+(e instanceof Error?e.message:String(e))+". Comprueba la URL, el despliegue y CORS.";}
  finally{submit.disabled=false;}
 });
