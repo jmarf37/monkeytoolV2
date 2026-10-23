@@ -1,11 +1,11 @@
 export {};
 type Result={domain:string;summary:Record<string,unknown>;flags:Record<string,boolean>;report_text:string;sources:Record<string,{data:Record<string,unknown>;error?:string}>};
-const worker="https://monkeytoolv2-domain.TU_SUBDOMINIO.workers.dev";
+const worker="https://monkeytoolv2-domain.jesusmartinezferrer.workers.dev";
 const form=document.querySelector<HTMLFormElement>("#domain-form");
 const resultBox=document.querySelector<HTMLElement>("#domain-results");
 const domainStatus=document.querySelector<HTMLElement>("#domain-status");
 const workerField=document.querySelector<HTMLInputElement>("#worker-url");
-if(workerField)workerField.placeholder=worker;
+if(workerField){workerField.value=worker;workerField.placeholder=worker;}
 const titles=["Virustotal Community Score","Security Vendors Flagged","Registrar","Creation Date","Categories","Reputation","AlienVault Pulses","URLScan Results"];
 const highlights:Record<string,string>={"Virustotal Community Score":"vt_score_red","Security Vendors Flagged":"vt_vendors_red","AlienVault Pulses":"alien_pulses_red"};
 const elem=<K extends keyof HTMLElementTagNameMap>(tag:K,txt?:string,cls?:string)=>{const e=document.createElement(tag);if(txt!==undefined)e.textContent=txt;if(cls)e.className=cls;return e;};
