@@ -1,5 +1,4 @@
-import { analyzeDomain, validDomain } from "./domain";
-export interface Env { VT_API?:string; URLSCAN_API?:string; ABUSE_API?:string; ALIEN_API?:string; IPQ_API?:string; BLACKLIST_URL?:string; ALLOWED_ORIGIN?:string; }
+export interface Env { VT_API?:string; ABUSE_API?:string; ALIEN_API?:string; IPQ_API?:string; BLACKLIST_URL?:string; ALLOWED_ORIGIN?:string; }
 type Fields=Record<string,unknown>;
 type Source={data:Fields;error?:string};
 const urls={vt:"https://www.virustotal.com/api/v3/ip_addresses/",abuse:"https://api.abuseipdb.com/api/v2/check",otx:"https://otx.alienvault.com/api/v1/indicators/IPv4/",ipqs:"https://www.ipqualityscore.com/api/json/ip/",rdap:"https://rdap.org/ip/"};
@@ -80,22 +79,12 @@ export default {async fetch(req:Request,env:Env):Promise<Response>{
  const headers={"Access-Control-Allow-Origin":allowed,"Vary":"Origin","Access-Control-Allow-Methods":"POST, OPTIONS","Access-Control-Allow-Headers":"Content-Type","Cache-Control":"no-store","Content-Type":"application/json; charset=utf-8"};
  const response=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers});
  const u=new URL(req.url);if(u.pathname==="/health")return response({ok:true,service:"monkeytools-ip"});
- if(u.pathname!=="/api/ip/analyze"&&u.pathname!=="/api/domain/analyze")return response({error:"Ruta no encontrada"},404);
+ if(u.pathname!=="/api/ip/analyze")return response({error:"Ruta no encontrada"},404);
  if(origin!==allowed)return response({error:"Origen no permitido"},403);
  if(req.method==="OPTIONS")return new Response(null,{status:204,headers});
  if(req.method!=="POST")return response({error:"Método no permitido"},405);
  if(Number(req.headers.get("content-length")??0)>4096)return response({error:"Petición demasiado grande"},413);
  let body:any;try{body=await req.json()}catch{return response({error:"JSON inválido"},400)}
- if(u.pathname==="/api/domain/analyze"){
-  const raw:string=typeof body.domains==="string"?body.domains:"";
-  if(raw.length>1000)return response({error:"Entrada demasiado larga"},400);
-  const domains=[...new Set(raw.split(/[,\\s]+/).filter(Boolean).map(s=>s.toLowerCase()))];
-  if(!domains.length||domains.length>5)return response({error:"Indica entre 1 y 5 dominios por consulta"},400);
-  const errors=domains.filter(d=>!validDomain(d)).map(d=>"Dominio inválido: "+d);
-  const valid=domains.filter(validDomain);
-  const results=await Promise.all(valid.map(d=>analyzeDomain(d,env)));
-  return response({results,errors});
- }
  const input:string=typeof body.ips==="string"?body.ips:"";if(input.length>1000)return response({error:"Entrada demasiado larga"},400);
  const candidates=[...new Set(input.split(/[,\s]+/).filter(Boolean))];if(!candidates.length||candidates.length>5)return response({error:"Indica entre 1 y 5 IP por consulta"},400);
  const errors=candidates.filter(s=>!isIP(s)).map(s=>"IP inválida: "+s);
