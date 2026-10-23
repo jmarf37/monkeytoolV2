@@ -40,7 +40,7 @@ diagnosticButton?.addEventListener("click",async()=>{
  diagnosticButton.disabled=true;
  statusElement.textContent="Comprobando autenticación IPQualityScore desde Cloudflare...";
  try{
- const endpoint=(endpointInput?.value.trim().replace(/\\/+$/,"")||DEFAULT_WORKER_URL);
+ const endpoint=(endpointInput?.value.trim()||DEFAULT_WORKER_URL).replace(new RegExp("/+$"),"");
  const response=await fetch(endpoint+"/api/ipqs/diagnostic",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});
  const data=await response.json();
  if(!response.ok)throw new Error(String(data.error??response.status));
