@@ -28,7 +28,7 @@ async function virusTotal(domain:string,env:DomainEnv):Promise<Provider>{
   const total=Object.values(stats).reduce<number>((sum,n)=>sum+Number(n??0),0);
   return {"Community Score":malicious+" / "+total,
    "Security Vendors Flagged":malicious>0?malicious+" security vendors flagged this domain as malicious":"No security vendors flagged this domain as malicious",
-   "Domain":domain,"Registrar":attrs.registrar??null,"Creation Date":attrs.creation_date??null,
+   "Domain":domain,"Registrar":attrs.registrar??null,"Creation Date":typeof attrs.creation_date==="number"?new Date(attrs.creation_date*1000).toLocaleString("es-ES",{timeZone:"UTC",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit"}):null,
    "Categories":attrs.categories??null,"Reputation":attrs.reputation??null,
    "Last Analysis Date":asRelativeTime(attrs.last_analysis_date)};
  });
