@@ -39,12 +39,22 @@ async function otx(ip:string,env:Env):Promise<Source>{
 }
 async function ipqs(ip:string,env:Env):Promise<Source>{
  if(!env.IPQ_API)return missing("IPQ_API");
- return guarded(async()=>{const u=new URL(urls.ipqs+encodeURIComponent(env.IPQ_API!)+"/"+encodeURIComponent(ip));u.searchParams.set("strictness","1");u.searchParams.set("fast","true");u.searchParams.set("allow_public_access_points","true");u.searchParams.set("lighter_penalties","true");const d=await getJSON(u.toString());if(d.success===false)throw new Error("El proveedor rechazó la consulta");return {"Fraud Score":d.fraud_score,"Proxy":d.proxy,"TOR":d.tor,"Recent Abuse":d.recent_abuse,"ISP":d.ISP,"Organization":d.organization??d.Organization,"ASN":d.ASN,"Country Code":d.country_code,"City":d.city,"Region":d.region};});
+ return guarded(async()=>{const u=new URL(urls.ipqs+encodeURIComponent(env.IPQ_API!)+"/"+encodeURIComponent(ip));u.searchParams.set("strictness","1");u.searchParams.set("fast","true");u.searchParams.set("allow_public_access_points","true");u.searchParams.set("lighter_penalties","true");const d=await getJSON(u.toString());if(d.success===false)throw new Error("IPQS: "+String(d.message??"consulta rechazada").slice(0,240));return {"Fraud Score":d.fraud_score,"Proxy":d.proxy,"TOR":d.tor,"Recent Abuse":d.recent_abuse,"ISP":d.ISP,"Organization":d.organization??d.Organization,"ASN":d.ASN,"Country Code":d.country_code,"City":d.city,"Region":d.region};});
 }
 function contact(e:any){const fields=e.vcardArray?.[1]??[];const vals=(name:string)=>fields.filter((f:any)=>f[0]===name).map((f:any)=>Array.isArray(f[3])?f[3].filter(Boolean).join(" "):String(f[3]));return {handle:e.handle,roles:e.roles??[],name:vals("fn")[0],org:vals("org")[0],emails:vals("email"),phones:vals("tel"),addresses:vals("adr")}}
 async function rdap(ip:string):Promise<Source>{
- return guarded(async()=>{const d=await getJSON(urls.rdap+encodeURIComponent(ip),{Accept:"application/rdap+json, application/json"});const entities=(d.entities??[]).map(contact);const owner=entities.find((e:any)=>e.roles.some((r:string)=>["registrant","administrative"].includes(r)))?.org??d.name??d.handle;const cidrs=(d.cidr0_cidrs??[]).map((c:any)=>c.v4prefix?c.v4prefix+"/"+c.length:c.v6prefix+"/"+c.length).join(", ");
- return {"RIR":d.port43??null,"Handle":d.handle,"Name":d.name,"IP Version":d.ipVersion,"Country":d.country,"Start Address":d.startAddress,"End Address":d.endAddress,"CIDR":cidrs||null,"Owner (heuristic)":owner,"Events":(d.events??[]).map((e:any)=>e.eventAction+": "+e.eventDate),"Reference":d.links?.find((x:any)=>x.rel==="self")?.href,"RDAP Contacts":{abuse:entities.filter((e:any)=>e.roles.includes("abuse")),technical:entities.filter((e:any)=>e.roles.includes("technical")),administrative:entities.filter((e:any)=>e.roles.includes("administrative")),registrant:entities.filter((e:any)=>e.roles.includes("registrant"))}};});
+ return guarded(async()=>{const rdapHosts=[
+ ["ARIN","https://rdap.arin.net/registry/ip/"],
+ ["RIPE","https://rdap.db.ripe.net/ip/"],
+ ["APNIC","https://rdap.apnic.net/ip/"],
+ ["LACNIC","https://rdap.lacnic.net/rdap/ip/"],
+ ["AFRINIC","https://rdap.afrinic.net/rdap/ip/"]
+] as const;
+let d:any=null;let rir="";const failures:string[]=[];
+for(const [name,base] of rdapHosts){try{d=await getJSON(base+encodeURIComponent(ip),{Accept:"application/rdap+json, application/json"});rir=name;break;}catch(e){failures.push(name+": "+(e instanceof Error?e.message:"Error"));}}
+if(!d)throw new Error("Ningún registro RDAP respondió: "+failures.join(" | "));
+const entities=(d.entities??[]).map(contact);const owner=entities.find((e:any)=>e.roles.some((r:string)=>["registrant","administrative"].includes(r)))?.org??d.name??d.handle;const cidrs=(d.cidr0_cidrs??[]).map((c:any)=>c.v4prefix?c.v4prefix+"/"+c.length:c.v6prefix+"/"+c.length).join(", ");
+ return {"RIR":rir,"Handle":d.handle,"Name":d.name,"IP Version":d.ipVersion,"Country":d.country,"Start Address":d.startAddress,"End Address":d.endAddress,"CIDR":cidrs||null,"Owner (heuristic)":owner,"Events":(d.events??[]).map((e:any)=>e.eventAction+": "+e.eventDate),"Reference":d.links?.find((x:any)=>x.rel==="self")?.href,"RDAP Contacts":{abuse:entities.filter((e:any)=>e.roles.includes("abuse")),technical:entities.filter((e:any)=>e.roles.includes("technical")),administrative:entities.filter((e:any)=>e.roles.includes("administrative")),registrant:entities.filter((e:any)=>e.roles.includes("registrant"))}};});
 }
 async function blacklist(ip:string,env:Env):Promise<Source>{
  return guarded(async()=>{const url=env.BLACKLIST_URL||DEFAULT_BLACKLIST;const res=await fetch(url,{signal:AbortSignal.timeout(12000)});if(!res.ok)throw new Error("HTTP "+res.status);const content=await res.text();if(content.length>8_000_000)throw new Error("Lista demasiado grande para consulta directa");const found=content.split(/\r?\n/).some(line=>line.split("#")[0].split(/[\s,;]+/).includes(ip));return {"Blacklist (S2Grupo)":found?"Sí":"No","Blacklist Fuente":"S2Grupo IP_list.txt","Blacklist Consultada":new Date().toISOString()};});
