@@ -47,15 +47,19 @@ async function urlscan(domain:string,env:DomainEnv):Promise<Provider>{
  if(!env.URLSCAN_API)return missing("URLSCAN_API");
  return guarded(async()=>{
   const u=new URL("https://urlscan.io/api/v1/search/");
-  u.searchParams.set("q","domain:"+domain);
-  u.searchParams.set("size","1");
+  u.searchParams.set("q","page.domain:"+domain);
+  u.searchParams.set("size","25");
   const d=await json(u.toString(),{"API-Key":env.URLSCAN_API!});
-  const scans=(Array.isArray(d.results)?d.results:[]).slice(0,1).map((item:any)=>{
+  const matches=(Array.isArray(d.results)?d.results:[]).filter((item:any)=>{
+   const actual=String(item.page?.domain??"").toLowerCase().replace(/\\.$/,"");
+   return actual===domain||actual.endsWith("."+domain);
+  });
+  const scans=matches.slice(0,1).map((item:any)=>{
     const task=item.task??{},page=item.page??{};
     return {"Time":task.time??null,"Domain":page.domain??null,"Url":page.url??null,
      "Redirected":page.redirected??null,"Server":page.server??null,"IP":page.ip??null,
      "ASN":page.asn??null,"ASN Name":page.asnname??null,"City":page.city??null,
-     "Country":page.country??null,"Status":page.status??null,"Report URL":task.reportURL??null,
+     "Country":page.country??null,"Status":page.status??null,"Report URL":task.reportURL??(typeof task.uuid==="string"?"https://urlscan.io/result/"+encodeURIComponent(task.uuid)+"/":null),
      "Visibility":task.visibility??null,"UUID":task.uuid??null};
   });
   return {"URLScan Results":scans};
