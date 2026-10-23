@@ -10,10 +10,10 @@
     "check:worker": "tsc --noEmit -p worker/tsconfig.json"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "*",
     "@types/node": "^22.15.0",
-    "typescript": "~5.9.3",
+    "typescript": "^5.9.0",
     "vite": "^7.1.0",
-    "@cloudflare/workers-types": "^4.20261001.0",
     "wrangler": "^4.0.0"
   }
 }
