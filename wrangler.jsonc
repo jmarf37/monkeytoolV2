@@ -1,5 +1,5 @@
 {
-  "name": "monkeytool-v2-ip",
+  "name": "monkeytoolv2",
   "main": "worker/index.ts",
   "compatibility_date": "2026-10-01",
   "workers_dev": true
