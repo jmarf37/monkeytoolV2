@@ -33,3 +33,18 @@ form?.addEventListener("submit",async(event)=>{
  }catch(e){statusElement.textContent="No se pudo consultar el Worker: "+(e instanceof Error?e.message:String(e))+". Comprueba la URL, el despliegue y CORS.";}
  finally{submit.disabled=false;}
 });
+
+const diagnosticButton=document.querySelector<HTMLButtonElement>("#diagnose-ipqs");
+diagnosticButton?.addEventListener("click",async()=>{
+ if(!statusElement||!diagnosticButton)return;
+ diagnosticButton.disabled=true;
+ statusElement.textContent="Comprobando autenticación IPQualityScore desde Cloudflare...";
+ try{
+ const endpoint=(endpointInput?.value.trim().replace(/\\/+$/,"")||DEFAULT_WORKER_URL);
+ const response=await fetch(endpoint+"/api/ipqs/diagnostic",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});
+ const data=await response.json();
+ if(!response.ok)throw new Error(String(data.error??response.status));
+ statusElement.textContent=JSON.stringify(data,null,2);
+ }catch{statusElement.textContent="No se pudo completar la prueba de autenticación. Revisa el último despliegue de Cloudflare."}
+ finally{diagnosticButton.disabled=false}
+});
