@@ -75,7 +75,7 @@ export default {async fetch(req:Request,env:Env):Promise<Response>{
  if(req.method!=="POST")return response({error:"Método no permitido"},405);
  if(Number(req.headers.get("content-length")??0)>4096)return response({error:"Petición demasiado grande"},413);
  let body:any;try{body=await req.json()}catch{return response({error:"JSON inválido"},400)}
- const input=typeof body.ips==="string"?body.ips:"";if(input.length>1000)return response({error:"Entrada demasiado larga"},400);
+ const input:string=typeof body.ips==="string"?body.ips:"";if(input.length>1000)return response({error:"Entrada demasiado larga"},400);
  const candidates=[...new Set(input.split(/[,\s]+/).filter(Boolean))];if(!candidates.length||candidates.length>5)return response({error:"Indica entre 1 y 5 IP por consulta"},400);
  const errors=candidates.filter(s=>!isIP(s)).map(s=>"IP inválida: "+s);
  const valid=candidates.filter(isIP);const results=[];for(const ip of valid)results.push(await analyze(ip,env));
