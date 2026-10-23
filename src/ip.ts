@@ -3,6 +3,8 @@ const form=document.querySelector<HTMLFormElement>("#ip-form");
 const output=document.querySelector<HTMLElement>("#results");
 const statusElement=document.querySelector<HTMLElement>("#ip-status");
 const endpointInput=document.querySelector<HTMLInputElement>("#api-endpoint");
+const DEFAULT_WORKER_URL="https://monkeytoolv2.jesusmartinezferrer.workers.dev";
+if(endpointInput && !endpointInput.value) endpointInput.value=DEFAULT_WORKER_URL;
 const submit=form?.querySelector<HTMLButtonElement>("button[type=submit]");
 const labels=["Virustotal Community Score","Security Vendors Flagged","AbuseIPDB Reports","AbuseIPDB Confidence","AlienVault Pulses","IPQS TOR","IPQS Fraud Score","Blacklist S2Grupo","RDAP Owner (heuristic)","Country"];
 const flagFor:Record<string,string>={"Virustotal Community Score":"vt_score_red","Security Vendors Flagged":"vt_vendors_red","AbuseIPDB Reports":"abuse_reports_red","AlienVault Pulses":"alien_pulses_red","IPQS TOR":"ipqs_tor_red"};
