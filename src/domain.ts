@@ -1,3 +1,4 @@
+export {};
 type Result={domain:string;summary:Record<string,unknown>;flags:Record<string,boolean>;report_text:string;sources:Record<string,{data:Record<string,unknown>;error?:string}>};
 const worker="https://monkeytoolv2-domain.TU_SUBDOMINIO.workers.dev";
 const form=document.querySelector<HTMLFormElement>("#domain-form");
