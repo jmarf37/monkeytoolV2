@@ -31,7 +31,6 @@ function renderRdap(data:Record<string,unknown>):HTMLElement{
     group.append(box)}
    section.append(group)}
  }
- }
  return section;
 }
 function render(result:Result){
