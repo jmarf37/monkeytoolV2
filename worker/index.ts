@@ -42,7 +42,7 @@ async function ipqs(ip:string,env:Env):Promise<Source>{
    if(ip.includes(":"))return {data:{},error:"El microservicio IPQS está configurado para IPv4"};
    return guarded(async()=>{
      let url:URL;
-     try{url=new URL(env.IPQS_PROXY_URL)}catch{throw new Error("IPQS_PROXY_URL inválida")}
+     try{url=new URL(env.IPQS_PROXY_URL!)}catch{throw new Error("IPQS_PROXY_URL inválida")}
      if(url.protocol!=="https:"||!url.hostname.endsWith(".onrender.com")||url.username||url.password||url.search||url.hash)throw new Error("URL de IPQS Proxy no autorizada");
      url.pathname="/lookup";
      const res=await fetch(url.toString(),{method:"POST",headers:{"Authorization":"Bearer "+env.IPQS_PROXY_TOKEN,"Content-Type":"application/json"},body:JSON.stringify({ip}),signal:AbortSignal.timeout(28000)});
