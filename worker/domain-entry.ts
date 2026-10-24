@@ -18,7 +18,7 @@ export default {
   const raw=typeof data.domains==="string"?data.domains:"";
   if(raw.length>1000)return reply({error:"Entrada demasiado larga"},400);
   const domains=[...new Set(raw.split(/[,\s]+/).filter(Boolean).map(d=>d.toLowerCase()))];
-  if(!domains.length||domains.length>5)return reply({error:"Indica entre 1 y 5 dominios"},400);
+  if(!domains.length||domains.length>15)return reply({error:"Indica entre 1 y 15 dominios"},400);
   const errors=domains.filter(d=>!validDomain(d)).map(d=>"Dominio inválido: "+d);
   const results=await Promise.all(domains.filter(validDomain).map(domain=>analyzeDomain(domain,env)));
   return reply({results,errors});
