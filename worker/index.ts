@@ -1,4 +1,4 @@
-export interface Env { VT_API?:string; ABUSE_API?:string; ALIEN_API?:string; IPQ_API?:string; BLACKLIST_URL?:string; ALLOWED_ORIGIN?:string; }
+export interface Env { VT_API?:string; ABUSE_API?:string; ALIEN_API?:string; IPQ_API?:string; IPQS_PROXY_URL?:string; IPQS_PROXY_TOKEN?:string; BLACKLIST_URL?:string; ALLOWED_ORIGIN?:string; }
 type Fields=Record<string,unknown>;
 type Source={data:Fields;error?:string};
 const urls={vt:"https://www.virustotal.com/api/v3/ip_addresses/",abuse:"https://api.abuseipdb.com/api/v2/check",otx:"https://otx.alienvault.com/api/v1/indicators/IPv4/",ipqs:"https://www.ipqualityscore.com/api/json/ip/",rdap:"https://rdap.org/ip/"};
@@ -38,6 +38,21 @@ async function otx(ip:string,env:Env):Promise<Source>{
  return guarded(async()=>{const d=await getJSON(urls.otx+encodeURIComponent(ip)+"/general",{"X-OTX-API-KEY":env.ALIEN_API!});return {"IP":d.indicator,"Pulse Info Count":d.pulse_info?.count,"Pulse Info IDs":(d.pulse_info?.pulses??[]).map((p:any)=>p.id).filter(Boolean),"Continent Code":d.continent_code,"Country Code":d.country_code2,"Latitude":d.latitude,"Longitude":d.longitude,"ASN":d.asn};});
 }
 async function ipqs(ip:string,env:Env):Promise<Source>{
+ if(env.IPQS_PROXY_URL&&env.IPQS_PROXY_TOKEN){
+   if(ip.includes(":"))return {data:{},error:"El microservicio IPQS está configurado para IPv4"};
+   return guarded(async()=>{
+     let url:URL;
+     try{url=new URL(env.IPQS_PROXY_URL)}catch{throw new Error("IPQS_PROXY_URL inválida")}
+     if(url.protocol!=="https:"||!url.hostname.endsWith(".onrender.com")||url.username||url.password||url.search||url.hash)throw new Error("URL de IPQS Proxy no autorizada");
+     url.pathname="/lookup";
+     const res=await fetch(url.toString(),{method:"POST",headers:{"Authorization":"Bearer "+env.IPQS_PROXY_TOKEN,"Content-Type":"application/json"},body:JSON.stringify({ip}),signal:AbortSignal.timeout(28000)});
+     const payload=await res.json() as {data?:Fields;error?:string;request_id?:string};
+     if(!res.ok)throw new Error(String(payload.error??("IPQS proxy HTTP "+res.status)).slice(0,220)+(payload.request_id?" [request_id: "+payload.request_id.slice(0,60)+"]":""));
+     if(!payload.data||typeof payload.data!=="object")throw new Error("Respuesta IPQS proxy inválida");
+     return payload.data;
+   });
+ }
+
  if(!env.IPQ_API)return missing("IPQ_API");
  return guarded(async()=>{const key=env.IPQ_API!.trim();if(!key)throw new Error("El secreto IPQ_API está vacío");const u=new URL(urls.ipqs+encodeURIComponent(key)+"/"+encodeURIComponent(ip));u.searchParams.set("strictness","1");u.searchParams.set("fast","true");u.searchParams.set("allow_public_access_points","true");u.searchParams.set("lighter_penalties","true");const d=await getJSON(u.toString());if(d.success===false)throw new Error("IPQS: "+String(d.message??"consulta rechazada").slice(0,200)+(typeof d.request_id==="string"?" [request_id: "+d.request_id.replace(/[^a-zA-Z0-9_-]/g,"").slice(0,64)+"]":""));return {"Fraud Score":d.fraud_score,"Proxy":d.proxy,"TOR":d.tor,"Recent Abuse":d.recent_abuse,"ISP":d.ISP,"Organization":d.organization??d.Organization,"ASN":d.ASN,"Country Code":d.country_code,"City":d.city,"Region":d.region};});
 }
