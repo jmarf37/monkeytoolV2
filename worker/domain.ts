@@ -6,7 +6,7 @@ const missing=(key:string):Provider=>({data:{},error:"Falta configurar el secret
 const guarded=async(fn:()=>Promise<Fields>):Promise<Provider>=>{try{return {data:await fn()}}catch(e){return {data:{},error:e instanceof Error?e.message:"Error del proveedor"}}};
 async function json(url:string,headers:Record<string,string>):Promise<any>{
  const resp=await fetch(url,{headers,signal:AbortSignal.timeout(12000)});
- if(!resp.ok)throw new Error("HTTP "+resp.status);
+ if(!resp.ok){if(resp.status===400)throw new Error("HTTP 400: el proveedor rechaza el dominio consultado; comprueba que esté escrito correctamente.");if(resp.status===404)throw new Error("HTTP 404: dominio sin registro en este proveedor.");if(resp.status===401||resp.status===403)throw new Error("HTTP "+resp.status+": acceso API rechazado; revisa la credencial o los permisos.");if(resp.status===429)throw new Error("HTTP 429: límite de consultas de la API alcanzado.");throw new Error("HTTP "+resp.status+": error del proveedor.");}
  return resp.json();
 }
 function asRelativeTime(timestamp:unknown):string|null {
