@@ -47,13 +47,17 @@ async function urlscan(domain:string,env:DomainEnv):Promise<Provider>{
  if(!env.URLSCAN_API)return missing("URLSCAN_API");
  return guarded(async()=>{
   const u=new URL("https://urlscan.io/api/v1/search/");
-  u.searchParams.set("q","page.domain:"+domain);
-  u.searchParams.set("size","25");
+  // Match both the URL initially submitted and the final page after redirects.
+  u.searchParams.set("q","(task.domain:"+domain+" OR page.domain:"+domain+")");
+  u.searchParams.set("size","100");
   const d=await json(u.toString(),{"API-Key":env.URLSCAN_API!});
-  const matches=(Array.isArray(d.results)?d.results:[]).filter((item:any)=>{
-   const actual=String(item.page?.domain??"").toLowerCase().replace(/\\.$/,"");
+  const belongs=(hostname:unknown):boolean=>{
+   const actual=String(hostname??"").toLowerCase().replace(/\\.$/,"");
    return actual===domain||actual.endsWith("."+domain);
-  });
+  };
+  const matches=(Array.isArray(d.results)?d.results:[]).filter((item:any)=>
+   belongs(item.task?.domain)||belongs(item.page?.domain)
+  );
   const scans=matches.slice(0,1).map((item:any)=>{
     const task=item.task??{},page=item.page??{};
     return {"Time":task.time??null,"Domain":page.domain??null,"Url":page.url??null,
