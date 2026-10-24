@@ -18,19 +18,6 @@ function renderRdap(data:Record<string,unknown>):HTMLElement{
  const tr=el("tr");const cell=el("td");if(name==="Reference"&&typeof v==="string"&&v.startsWith("https://")){const a=el("a","","Ver registro oficial");a.href=v;a.target="_blank";a.rel="noopener noreferrer";cell.append(a)}else cell.textContent=readable(v);
  tr.append(el("th","",name),cell);table.append(tr)}
  section.append(table);
- const events=data.Events;if(Array.isArray(events)&&events.length){section.append(el("h4","","Historial de eventos"));const list=el("ul","rdap-events");for(const ev of events)list.append(el("li","",String(ev)));section.append(list)}
- const contacts=data["RDAP Contacts"];
- if(contacts&&typeof contacts==="object"){
-  section.append(el("h4","","Contactos de registro"));
-  const groups=contacts as Record<string,unknown>;
-  for(const [role,entries] of Object.entries(groups)){if(!Array.isArray(entries)||!entries.length)continue;
-   const group=el("details","rdap-contact-group"),label=el("summary","",role+" ("+entries.length+")");group.append(label);
-   for(const entry of entries){if(!entry||typeof entry!=="object")continue;const box=el("div","rdap-contact");
-    for(const [key,value] of Object.entries(entry)){if(value===null||value===undefined||(Array.isArray(value)&&!value.length))continue;
-      const line=el("p");const strong=el("strong","",key+": ");line.append(strong,document.createTextNode(readable(value)));box.append(line)}
-    group.append(box)}
-   section.append(group)}
- }
  return section;
 }
 function render(result:Result){
