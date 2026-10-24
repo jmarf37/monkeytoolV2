@@ -12,12 +12,9 @@ const elem=<K extends keyof HTMLElementTagNameMap>(tag:K,txt?:string,cls?:string
 const display=(v:unknown)=>v===null||v===undefined?"N/A":typeof v==="object"?JSON.stringify(v):String(v);
 function render(r:Result):HTMLElement{
  const card=elem("article",undefined,"domain-card");
- card.append(elem("h2","Dominio analizado: "+r.domain),elem("h3","Resumen análisis"));
- const table=elem("table",undefined,"domain-table");
- for(const name of titles){const tr=elem("tr");tr.append(elem("th",name),elem("td",display(r.summary[name]),r.flags[highlights[name]]?"risk":""));table.append(tr);}
- card.append(table);
+ card.append(elem("h2","Dominio analizado: "+r.domain));
  for(const [name,source] of Object.entries(r.sources)){if(source.error)card.append(elem("p",name+": "+source.error,"risk"));}
- const details=elem("details");const summary=elem("summary","Ver detalles completos");const button=elem("button","Copiar informe");button.type="button";button.className="copy-btn";
+ const details=elem("details");details.open=true;const summary=elem("summary","Informe completo");const button=elem("button","Copiar informe");button.type="button";button.className="copy-btn";
  button.addEventListener("click",async e=>{e.preventDefault();e.stopPropagation();try{await navigator.clipboard.writeText(r.report_text);button.textContent="¡Copiado!";}catch{button.textContent="No se pudo copiar";}});
  summary.append(button);details.append(summary,elem("pre",r.report_text));card.append(details);return card;
 }
