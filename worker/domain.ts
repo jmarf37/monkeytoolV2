@@ -92,7 +92,7 @@ function report(domain:string,sources:Record<string,Provider>):string{
  out.push("VirusTotal: https://www.virustotal.com/gui/domain/"+encodeURIComponent(domain));
  out.push("AlienVault OTX: https://otx.alienvault.com/indicator/domain/"+encodeURIComponent(domain));
  out.push("URLScan: "+(scanLink??"No disponible (sin resultados coincidentes)"));
- return out.join("\\n");
+ return out.join("\n");
 }
 export async function analyzeDomain(domain:string,env:DomainEnv){
  const [vt,otx,scan]=await Promise.all([virusTotal(domain,env),alienVault(domain,env),urlscan(domain,env)]);
