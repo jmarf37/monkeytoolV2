@@ -85,7 +85,14 @@ function report(domain:string,sources:Record<string,Provider>):string{
   }else for(const [name,value] of Object.entries(source.data))out.push(name+": "+serialize(value));
   out.push("");
  }
- return out.join("\n");
+ const scanResults=sources.urlscan?.data["URLScan Results"];
+ const firstScan=Array.isArray(scanResults)?scanResults[0] as Fields|undefined:undefined;
+ const scanLink=typeof firstScan?.["Report URL"]==="string"&&String(firstScan["Report URL"]).startsWith("https://urlscan.io/")?String(firstScan["Report URL"]):null;
+ out.push("######### Enlaces a los análisis #########");
+ out.push("VirusTotal: https://www.virustotal.com/gui/domain/"+encodeURIComponent(domain));
+ out.push("AlienVault OTX: https://otx.alienvault.com/indicator/domain/"+encodeURIComponent(domain));
+ out.push("URLScan: "+(scanLink??"No disponible (sin resultados coincidentes)"));
+ return out.join("\\n");
 }
 export async function analyzeDomain(domain:string,env:DomainEnv){
  const [vt,otx,scan]=await Promise.all([virusTotal(domain,env),alienVault(domain,env),urlscan(domain,env)]);
