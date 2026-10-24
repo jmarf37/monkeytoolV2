@@ -26,15 +26,20 @@ form?.addEventListener("submit",async event=>{
  const host=workerField?.value.trim().replace(/\/+$/,"")??"";
  if(!/^https:\/\/[a-z0-9.-]+\.workers\.dev$/i.test(host)){domainStatus.textContent="Introduce la URL HTTPS del Worker de dominios.";return;}
  const domains=(document.querySelector<HTMLTextAreaElement>("#domains")?.value??"").trim();
+ const candidates=[...new Set(domains.split(/[,\\s]+/).filter(Boolean))];
+ if(!candidates.length||candidates.length>15){domainStatus.textContent="Indica entre 1 y 15 dominios.";return;}
  const button=form.querySelector<HTMLButtonElement>("button[type=submit]");if(button)button.disabled=true;
- domainStatus.textContent="Consultando fuentes de reputación...";resultBox.replaceChildren();
+ resultBox.replaceChildren();let count=0,invalid=0;
  try{
-  const response=await fetch(host+"/api/domain/analyze",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({domains})});
-  const body=await response.json();
-  if(!response.ok)throw new Error(body.error??"HTTP "+response.status);
-  for(const error of (body.errors??[]))resultBox.append(elem("p",String(error),"risk"));
-  for(const result of (body.results??[]) as Result[])resultBox.append(render(result));
-  domainStatus.textContent=(body.results?.length??0)+" dominios analizados";
- }catch(e){domainStatus.textContent="Error: "+(e instanceof Error?e.message:String(e));}
+  for(let i=0;i<candidates.length;i+=3){
+   domainStatus.textContent="Analizando dominios "+(i+1)+"–"+Math.min(i+3,candidates.length)+" de "+candidates.length+"...";
+   const response=await fetch(host+"/api/domain/analyze",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({domains:candidates.slice(i,i+3).join(",")})});
+   const body=await response.json();
+   if(!response.ok)throw new Error(body.error??"HTTP "+response.status);
+   for(const error of (body.errors??[])){resultBox.append(elem("p",String(error),"risk"));invalid++;}
+   for(const result of (body.results??[]) as Result[]){resultBox.append(render(result));count++;}
+  }
+  domainStatus.textContent=count+" dominios analizados. "+invalid+" entradas inválidas.";
+ }catch(e){domainStatus.textContent=count+" dominios completados. Error en lote: "+(e instanceof Error?e.message:String(e));}
  finally{if(button)button.disabled=false;}
 });
