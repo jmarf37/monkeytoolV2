@@ -52,7 +52,7 @@ form?.addEventListener("submit",async(event)=>{
  const endpoint=endpointInput?.value.trim().replace(/\/+$/,"")??"";
  if(!endpoint){statusElement.textContent="Debes indicar la URL de tu Cloudflare Worker cuando esté desplegado.";return;}
  if(!/^https:\/\/[a-z0-9.-]+$/i.test(endpoint)){statusElement.textContent="La URL debe ser HTTPS y contener solo el dominio del Worker.";return;}
- const indicators=[...new Set(input.split(/[,\\s]+/).filter(Boolean))];
+ const indicators=[...new Set(input.split(/[,\s]+/).filter(Boolean))];
  if(!indicators.length||indicators.length>15){statusElement.textContent="Indica entre 1 y 15 IP.";return;}
  submit.disabled=true;statusElement.textContent="Preparando "+indicators.length+" IP...";output.replaceChildren();
  let done=0,invalid=0;
@@ -60,7 +60,7 @@ form?.addEventListener("submit",async(event)=>{
   for(let i=0;i<indicators.length;i+=3){
    const part=indicators.slice(i,i+3);
    statusElement.textContent="Analizando IP "+(i+1)+"–"+Math.min(i+3,indicators.length)+" de "+indicators.length+"...";
-   const res=await fetch(endpoint+"/api/ip/analyze",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ips:part.join("\\n")})});
+   const res=await fetch(endpoint+"/api/ip/analyze",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ips:part.join(",")})});
    const body=await res.json();if(!res.ok)throw new Error(body.error??"HTTP "+res.status);
    const errors=Array.isArray(body.errors)?body.errors:[];invalid+=errors.length;
    for(const error of errors)output.append(el("p","danger",String(error)));
