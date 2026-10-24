@@ -74,11 +74,28 @@ const entities=(d.entities??[]).map(contact);const owner=entities.find((e:any)=>
 async function blacklist(ip:string,env:Env):Promise<Source>{
  return guarded(async()=>{const url=env.BLACKLIST_URL||DEFAULT_BLACKLIST;const res=await fetch(url,{signal:AbortSignal.timeout(12000)});if(!res.ok)throw new Error("HTTP "+res.status);const content=await res.text();if(content.length>8_000_000)throw new Error("Lista demasiado grande para consulta directa");const found=content.split(/\r?\n/).some(line=>line.split("#")[0].split(/[\s,;]+/).includes(ip));return {"Blacklist (S2Grupo)":found?"Sí":"No","Blacklist Fuente":"S2Grupo IP_list.txt","Blacklist Consultada":new Date().toISOString()};});
 }
+function rdapEventLabel(raw:unknown):string{
+ const value=String(raw??"");
+ const pos=value.indexOf(": ");
+ const action=(pos>=0?value.slice(0,pos):value).toLowerCase();
+ const iso=pos>=0?value.slice(pos+2):"";
+ const names:Record<string,string>={"registration":"Registrado","last changed":"Última modificación","last update of rdap database":"Última actualización RDAP","expiration":"Caducidad","transfer":"Transferencia"};
+ const label=names[action]??(action?action.charAt(0).toUpperCase()+action.slice(1):"Evento");
+ const date=new Date(iso);
+ if(!iso||Number.isNaN(date.getTime()))return label+": "+(iso||"Fecha no disponible");
+ const formatted=new Intl.DateTimeFormat("es-ES",{timeZone:"UTC",day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit",hourCycle:"h23"}).format(date);
+ const now=new Date();let years=now.getUTCFullYear()-date.getUTCFullYear();
+ const anniversary=new Date(date.getTime());anniversary.setUTCFullYear(date.getUTCFullYear()+years);
+ if(anniversary>now)years--;
+ const elapsed=Math.max(0,now.getTime()-date.getTime());
+ const relative=years>0?years+" año"+(years===1?"":"s"):Math.floor(elapsed/86400000)+" días";
+ return label+": "+formatted+" UTC (hace "+relative+")";
+}
 function format(ip:string,sources:Record<string,Source>):string{
  const order:[string,string][]=[["virustotal","Virustotal"],["abuseipdb","AbuseIPDB"],["alienvault","AlienVault OTX"],["ipqualityscore","IPQualityScore"],["rdap","Registration Data Access Protocol (RDAP)"],["blacklist","Blacklist (S2Grupo)"]];
  const data=(k:string,field:string)=>sources[k].error?"ERROR: "+sources[k].error:String(sources[k].data[field]??"N/A");
  const lines=["Análisis Reputacional ------> "+ip,"","-".repeat(88),"Resultado:", "Virustotal --> "+data("virustotal","Community Score")+" VT","AbuseIPDB --> "+data("abuseipdb","Reports")+" | Confidence "+data("abuseipdb","Confidence of abuse"),"AlienVault OTX --> "+data("alienvault","Pulse Info Count"),"IPQualityScore --> Fraud Score "+data("ipqualityscore","Fraud Score")+" | TOR "+data("ipqualityscore","TOR"),"Blacklist S2Grupo (MISP) --> "+data("blacklist","Blacklist (S2Grupo)"),"-".repeat(88)];
- for(const [key,label] of order){lines.push("","######### "+label+" #########");const x=sources[key];if(x.error)lines.push("ERROR: "+x.error);else for(const [k,v] of Object.entries(x.data)){if(key==="rdap"&&(k==="Events"||k==="RDAP Contacts"))continue;lines.push(k+": "+(typeof v==="object"&&v!==null?JSON.stringify(v,null,2):String(v??"N/A")));}}
+ for(const [key,label] of order){lines.push("","######### "+label+" #########");const x=sources[key];if(x.error)lines.push("ERROR: "+x.error);else for(const [k,v] of Object.entries(x.data)){if(key==="rdap"&&k==="RDAP Contacts")continue;if(key==="rdap"&&k==="Events"){lines.push("Events:");if(Array.isArray(v)&&v.length){for(const event of v)lines.push("  - "+rdapEventLabel(event));}else lines.push("  - No disponible");continue;}lines.push(k+": "+(typeof v==="object"&&v!==null?JSON.stringify(v,null,2):String(v??"N/A")));}}
  return lines.join("\n");
 }
 async function analyze(ip:string,env:Env){
