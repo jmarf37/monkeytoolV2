@@ -10,16 +10,6 @@ const labels=["Virustotal Community Score","Security Vendors Flagged","AbuseIPDB
 const flagFor:Record<string,string>={"Virustotal Community Score":"vt_score_red","Security Vendors Flagged":"vt_vendors_red","AbuseIPDB Reports":"abuse_reports_red","AlienVault Pulses":"alien_pulses_red","IPQS TOR":"ipqs_tor_red"};
 function el<K extends keyof HTMLElementTagNameMap>(tag:K,cls?:string,text?:string){const node=document.createElement(tag);if(cls)node.className=cls;if(text!==undefined)node.textContent=text;return node;}
 function readable(v:unknown):string{return v===null||v===undefined?"N/A":typeof v==="object"?JSON.stringify(v):String(v)}
-function renderRdap(data:Record<string,unknown>):HTMLElement{
- const section=el("section","rdap-panel"),title=el("h3","","Registro RDAP");section.append(title);
- const fields=["RIR","Handle","Name","IP Version","Country","Start Address","End Address","CIDR","Owner (heuristic)","Reference"];
- const table=el("table","summary-table");
- for(const name of fields){const v=data[name];if(v===null||v===undefined||v==="")continue;
- const tr=el("tr");const cell=el("td");if(name==="Reference"&&typeof v==="string"&&v.startsWith("https://")){const a=el("a","","Ver registro oficial");a.href=v;a.target="_blank";a.rel="noopener noreferrer";cell.append(a)}else cell.textContent=readable(v);
- tr.append(el("th","",name),cell);table.append(tr)}
- section.append(table);
- return section;
-}
 function render(result:Result){
  const card=el("article","report-card"),head=el("h2","","IP Analizada: "+result.ip);card.append(head,el("h3","","Resumen análisis"));
  const table=el("table","summary-table"),tbody=el("tbody");
@@ -28,8 +18,6 @@ function render(result:Result){
  const details=el("details","detail-report"),summary=el("summary","","Ver detalles completos"),copy=el("button","copy-btn","Copiar informe");
  copy.type="button";copy.addEventListener("click",async(e)=>{e.preventDefault();e.stopPropagation();try{await navigator.clipboard.writeText(result.report_text);copy.textContent="¡Copiado!";}catch{copy.textContent="No se pudo copiar";}});
  summary.append(copy);details.append(summary,el("pre","report-text",result.report_text));card.append(details);
- const rdap=result.sources.rdap;
- if(rdap&&!rdap.error&&rdap.data&&Object.keys(rdap.data).length){card.append(renderRdap(rdap.data))}
  return card;
 }
 form?.addEventListener("submit",async(event)=>{
