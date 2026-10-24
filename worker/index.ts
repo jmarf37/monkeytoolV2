@@ -78,7 +78,7 @@ function format(ip:string,sources:Record<string,Source>):string{
  const order:[string,string][]=[["virustotal","Virustotal"],["abuseipdb","AbuseIPDB"],["alienvault","AlienVault OTX"],["ipqualityscore","IPQualityScore"],["rdap","Registration Data Access Protocol (RDAP)"],["blacklist","Blacklist (S2Grupo)"]];
  const data=(k:string,field:string)=>sources[k].error?"ERROR: "+sources[k].error:String(sources[k].data[field]??"N/A");
  const lines=["Análisis Reputacional ------> "+ip,"","-".repeat(88),"Resultado:", "Virustotal --> "+data("virustotal","Community Score")+" VT","AbuseIPDB --> "+data("abuseipdb","Reports")+" | Confidence "+data("abuseipdb","Confidence of abuse"),"AlienVault OTX --> "+data("alienvault","Pulse Info Count"),"IPQualityScore --> Fraud Score "+data("ipqualityscore","Fraud Score")+" | TOR "+data("ipqualityscore","TOR"),"Blacklist S2Grupo (MISP) --> "+data("blacklist","Blacklist (S2Grupo)"),"-".repeat(88)];
- for(const [key,label] of order){lines.push("","######### "+label+" #########");const x=sources[key];if(x.error)lines.push("ERROR: "+x.error);else for(const [k,v] of Object.entries(x.data))lines.push(k+": "+(typeof v==="object"&&v!==null?JSON.stringify(v,null,2):String(v??"N/A")));}
+ for(const [key,label] of order){lines.push("","######### "+label+" #########");const x=sources[key];if(x.error)lines.push("ERROR: "+x.error);else for(const [k,v] of Object.entries(x.data)){if(key==="rdap"&&(k==="Events"||k==="RDAP Contacts"))continue;lines.push(k+": "+(typeof v==="object"&&v!==null?JSON.stringify(v,null,2):String(v??"N/A")));}}
  return lines.join("\n");
 }
 async function analyze(ip:string,env:Env){
