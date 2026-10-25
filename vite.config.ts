@@ -8,6 +8,7 @@ export default defineConfig({
       input: {
         home: resolve(import.meta.dirname, "index.html"),
         login: resolve(import.meta.dirname, "login/index.html"),
+        setup: resolve(import.meta.dirname, "setup/index.html"),
         ip: resolve(import.meta.dirname, "ip/index.html"),
         dominio: resolve(import.meta.dirname, "dominio/index.html"),
         hash: resolve(import.meta.dirname, "hash/index.html")
