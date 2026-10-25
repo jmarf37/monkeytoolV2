@@ -12,6 +12,8 @@
   "include": [
     "index.ts",
     "domain-entry.ts",
-    "domain.ts"
+    "domain.ts",
+    "hash-entry.ts",
+    "hash.ts"
   ]
 }
