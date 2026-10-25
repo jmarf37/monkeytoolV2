@@ -84,14 +84,13 @@ async function hybrid(hash:string,env:HashEnv,sha256?:string):Promise<Source>{
       "File Type":first(data.type,data.type_short,metadata.type),
       "File Size":first(data.size,metadata.size,info.size),
       "Malware Family":first(data.vx_family,data.malware_family),
-      "Threat Score":score,"Threat Level":first(data.threat_level,data.threat_level_human),
+      "Threat Score":score??"No disponible mediante API","Threat Level":first(data.threat_level,data.threat_level_human),
       "Verdict":first(data.verdict,data.verdict_human),
-      "AV Detections":avCount&&typeof avCount==="object"?first(avCount.count,avCount.malicious):avCount,
-      "AV Total Engines":avTotal,
+      "AV Detections":avCount!=null&&avTotal!=null?String(avCount)+" / "+String(avTotal):avCount&&typeof avCount==="object"?first(avCount.count,avCount.malicious):avCount,
       "CrowdStrike Falcon":first(crowdstrike?.verdict,crowdstrike?.status,crowdstrike?.result),
       "First Seen":asDate(first(data.first_seen,info.first_seen,data.first_seen_at)),
       "Last Analyzed":asDate(first(data.last_analysis,info.last_analyzed,data.last_analyzed_at)),
-      "Tags":Array.isArray(data.tags)?data.tags.join(", "):data.tags??null};
+      "Tags":Array.isArray(data.tags)?data.tags.join(", ")||null:data.tags||null};
      if(indicators.length){result["Indicators Total"]=indicators.length;result["Malicious Indicators"]=malicious;result["Suspicious Indicators"]=suspicious;result["Informative Indicators"]=informative;}
      const resultEntries=avEngines.flatMap(x=>Array.isArray(x.anti_virus_results)?x.anti_virus_results:[]);
      if(resultEntries.length)result["AV detections detail"]=resultEntries.filter((x:any)=>/malicious|infected|detected/i.test(String(x?.result??x?.status??x?.verdict??""))).slice(0,15).map((x:any)=>[x?.name??x?.engine??"AV",x?.result??x?.verdict??"Detected"].join(": ")).join("; ")||"Ninguna detección detallada";
@@ -99,8 +98,7 @@ async function hybrid(hash:string,env:HashEnv,sha256?:string):Promise<Source>{
      if(scanInfo.length)result["Escáneres disponibles"]=scanInfo.join("; ");
      const avResults=first(data.antivirus,data.av_results,data.av_scanners,data.multi_scan_result);
      if(Array.isArray(avResults))result["Antivirus Results"]=avResults.slice(0,20).map((x:any)=>[x?.name??x?.engine??"AV",x?.result??x?.verdict??x?.detection??"N/A"].join(": ")).join("; ");
-     const keys=Object.keys(data).filter(x=>/^(threat|score|av|indicator|first|last|file|scan|malware|verdict|report|detect)/i.test(x)).slice(0,24);
-     result["Campos adicionales disponibles"]=keys.join(", ")||"Ninguno";
+     // El inventario de claves se usó para depuración; no forma parte del informe final.
      return result;
     }
    }
