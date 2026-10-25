@@ -26,3 +26,12 @@ body>.container{padding-left:calc(142px + 24px);max-width:1700px;margin:auto}
 .side-navigation .side-brand strong{color:#fff;font-size:1.24rem;line-height:1.15;letter-spacing:-.035em}
 .side-logo{width:115px;max-width:100%;height:auto;object-fit:contain;opacity:.94}
 @media(max-width:730px){.side-navigation .side-brand{display:none}}
+
+/* Identidad completa de Monkeytools en la navegación lateral */
+.side-navigation .side-brand{display:flex;flex-direction:column;justify-content:flex-start;align-items:center;gap:0;background:transparent!important}
+.side-navigation .side-wordmark{font-size:1.48rem;font-weight:850;letter-spacing:-.055em;line-height:1.15;white-space:nowrap}
+.side-navigation .side-monkey{color:#fff}
+.side-navigation .side-tools{color:#72e0d3}
+.side-navigation .side-byline{color:#fff;font-size:.71rem;font-weight:650;margin-top:5px;letter-spacing:0}
+.side-navigation .side-logo{width:142px;height:auto;display:block;margin:16px auto 0;object-fit:contain;opacity:1}
+@media(min-width:731px){.side-navigation{width:244px}.side-navigation .side-brand{padding-bottom:25px;margin-bottom:12px}body>.container{padding-left:calc(244px + 24px)}}
