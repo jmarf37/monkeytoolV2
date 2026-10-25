@@ -35,3 +35,5 @@ body>.container{padding-left:calc(142px + 24px);max-width:1700px;margin:auto}
 .side-navigation .side-byline{color:#fff;font-size:.71rem;font-weight:650;margin-top:5px;letter-spacing:0}
 .side-navigation .side-logo{width:142px;height:auto;display:block;margin:16px auto 0;object-fit:contain;opacity:1}
 @media(min-width:731px){.side-navigation{width:244px}.side-navigation .side-brand{padding-bottom:25px;margin-bottom:12px}body>.container{padding-left:calc(244px + 24px)}}
+
+.mt-logout{margin-top:auto;border:1px solid #72e0d3;border-radius:9px;padding:10px 12px;background:transparent;color:#fff;cursor:pointer;font-weight:700}.mt-logout:hover{background:#72e0d322}@media(max-width:730px){.mt-logout{font-size:11px;padding:7px}}
