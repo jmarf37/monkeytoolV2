@@ -26,14 +26,11 @@ Genera en tu propio equipo una cadena aleatoria con al menos 32 bytes y configú
 
 La API `POST /api/auth/setup` solo acepta el header `x-setup-token` que coincide con ese secreto, y se deshabilita automáticamente si ya existe algún usuario. Contraseña inicial de al menos **16 caracteres**.
 
-Desde tu equipo puedes utilizar:
-```bash
-curl -X POST 'https://monkeytools-portal.jesusmartinezferrer.workers.dev/api/auth/setup' \
-  -H 'Content-Type: application/json' \
-  -H 'x-setup-token: TOKEN_TEMPORAL_AQUI' \
-  --data '{"username":"admin","password":"CONTRASENA_MUY_LARGA_AQUI"}'
-```
-**No incluyas la contraseña real en archivos, historial ni capturas**. Más seguro: usar un cliente HTTP con campo secreto y pedir el cuerpo por entrada privada. Tras el alta, elimina `ADMIN_SETUP_TOKEN` de la configuración del Worker y despliega de nuevo.
+Abre en una ventana privada **`https://monkeytools-portal.jesusmartinezferrer.workers.dev/setup/`**. Introduce el token de instalación, el nombre del usuario y tu contraseña nueva. Usa una contraseña única de 16 caracteres o más.
+
+La pantalla de instalación crea una sola cuenta inicial. Tras recibir confirmación, **elimina `ADMIN_SETUP_TOKEN` de Cloudflare** para deshabilitar por completo el endpoint de instalación. Luego inicia sesión en `/login/`.
+
+Nunca pongas estos secretos en GitHub, en un chat ni en capturas de pantalla.
 
 ## 4. Pruebas
 - Ventana privada: `https://monkeytools-portal.jesusmartinezferrer.workers.dev/` redirige a `/login/`.
