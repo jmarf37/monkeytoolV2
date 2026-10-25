@@ -22,6 +22,10 @@ export default {async fetch(req:Request,env:Env):Promise<Response>{
  const url=new URL(req.url),p=url.pathname;
  if(p==="/health")return json({ok:true,service:"monkeytools-portal"});
  if(p.startsWith("/api/") && !sameOrigin(req))return json({error:"Origen no permitido"},403);
+ if(p==="/api/auth/setup/status"&&req.method==="GET"){
+   try{const row=await env.DB.prepare("SELECT COUNT(*) AS n FROM users").first<{n:number}>();return json({setup_enabled:Boolean(env.ADMIN_SETUP_TOKEN),database_ready:true,admin_exists:(row?.n??0)>0});}
+   catch{return json({setup_enabled:Boolean(env.ADMIN_SETUP_TOKEN),database_ready:false,admin_exists:null});}
+ }
  if(p==="/api/auth/setup"&&req.method==="POST"){
    if(!env.ADMIN_SETUP_TOKEN)return json({error:"Inicialización deshabilitada"},403);
    const token=req.headers.get("x-setup-token")??"";
