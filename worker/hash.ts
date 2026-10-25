@@ -61,12 +61,35 @@ async function hybrid(hash:string,env:HashEnv,sha256?:string):Promise<Source>{
    if(overview&&typeof overview==="object"){
     const data=overview.result??overview;
     if(data&&typeof data==="object"&&!Array.isArray(data)){
-     const reports=Array.isArray(data.reports)?data.reports:[];
-     return {"Estado":"Información del archivo disponible en Overview","Hash consultado":sha,
-      "SHA-256":data.sha256??sha,"Malware Family":data.vx_family??null,
-      "Threat Score":data.threat_score??null,"Threat Level":data.threat_level??null,
-      "Verdict":data.verdict??null,"Informes asociados":reports.length,
-      "AV Detections":data.av_detect??null};
+     const obj=(x:any)=>x&&typeof x==="object"&&!Array.isArray(x)?x:{};
+     const metadata=obj(data.file_metadata),info=obj(data.file_info),av=obj(data.av_detect),scan=obj(data.scanners),intel=obj(data.threat_intelligence);
+     const first=(...values:any[])=>values.find(v=>v!==null&&v!==undefined&&v!=="")??null;
+     const asDate=(v:any)=>typeof v==="string"?v:null;
+     const score=first(data.threat_score,data.threatscore,data.score,data.malware_score,intel.threat_score);
+     const avCount=first(data.av_detect,data.av_detections,data.av_detections_count,scan.malicious,scan.detected);
+     const indicators=Array.isArray(data.indicators)?data.indicators:[];
+     const malicious=indicators.filter((x:any)=>/malicious/i.test(String(x?.type??x?.classification??x?.severity??""))).length;
+     const suspicious=indicators.filter((x:any)=>/suspicious/i.test(String(x?.type??x?.classification??x?.severity??""))).length;
+     const informative=indicators.filter((x:any)=>/informative|info/i.test(String(x?.type??x?.classification??x?.severity??""))).length;
+     const result:Data={"Estado":"Información del archivo disponible en Overview","Hash consultado":sha,
+      "SHA-256":first(data.sha256,metadata.sha256),
+      "SHA-1":first(data.sha1,metadata.sha1),
+      "MD5":first(data.md5,metadata.md5),
+      "File Type":first(data.type,data.type_short,metadata.type),
+      "File Size":first(data.size,metadata.size,info.size),
+      "Malware Family":first(data.vx_family,data.malware_family),
+      "Threat Score":score,"Threat Level":first(data.threat_level,data.threat_level_human),
+      "Verdict":first(data.verdict,data.verdict_human),
+      "AV Detections":avCount&&typeof avCount==="object"?first(avCount.count,avCount.malicious):avCount,
+      "First Seen":asDate(first(data.first_seen,info.first_seen,data.first_seen_at)),
+      "Last Analyzed":asDate(first(data.last_analysis,info.last_analyzed,data.last_analyzed_at)),
+      "Tags":Array.isArray(data.tags)?data.tags.join(", "):data.tags??null};
+     if(indicators.length){result["Indicators Total"]=indicators.length;result["Malicious Indicators"]=malicious;result["Suspicious Indicators"]=suspicious;result["Informative Indicators"]=informative;}
+     const avResults=first(data.antivirus,data.av_results,data.av_scanners,data.multi_scan_result);
+     if(Array.isArray(avResults))result["Antivirus Results"]=avResults.slice(0,20).map((x:any)=>[x?.name??x?.engine??"AV",x?.result??x?.verdict??x?.detection??"N/A"].join(": ")).join("; ");
+     const keys=Object.keys(data).filter(x=>/^(threat|score|av|indicator|first|last|file|scan|malware|verdict|report|detect)/i.test(x)).slice(0,24);
+     result["Campos adicionales disponibles"]=keys.join(", ")||"Ninguno";
+     return result;
     }
    }
   }
