@@ -1,3 +1,4 @@
+export {};
 type Result={ip:string;summary:Record<string,unknown>;flags:Record<string,boolean>;report_text:string;sources:Record<string,{data:Record<string,unknown>;error?:string}>};
 const form=document.querySelector<HTMLFormElement>("#ip-form");
 const output=document.querySelector<HTMLElement>("#results");
