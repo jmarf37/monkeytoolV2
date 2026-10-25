@@ -5,6 +5,29 @@
   "assets": {
     "directory": "./dist",
     "html_handling": "auto-trailing-slash",
-    "not_found_handling": "404-page"
-  }
+    "not_found_handling": "404-page",
+    "binding": "ASSETS"
+  },
+  "main": "worker/portal-entry.ts",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "monkeytools-auth",
+      "database_id": "REPLACE_WITH_D1_DATABASE_ID"
+    }
+  ],
+  "services": [
+    {
+      "binding": "IP_SERVICE",
+      "service": "monkeytoolv2"
+    },
+    {
+      "binding": "DOMAIN_SERVICE",
+      "service": "monkeytoolv2-domain"
+    },
+    {
+      "binding": "HASH_SERVICE",
+      "service": "monkeytoolv2-hash"
+    }
+  ]
 }
