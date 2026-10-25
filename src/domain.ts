@@ -1,6 +1,7 @@
 export {};
 type Result={domain:string;summary:Record<string,unknown>;flags:Record<string,boolean>;report_text:string;sources:Record<string,{data:Record<string,unknown>;error?:string}>};
-const worker="https://monkeytoolv2-domain.jesusmartinezferrer.workers.dev";
+const isPortal=location.hostname!=="jmarf37.github.io" && (location.hostname==="monkeytools.es"||location.hostname.endsWith(".workers.dev"));
+const worker=isPortal?location.origin:"https://monkeytoolv2-domain.jesusmartinezferrer.workers.dev";
 const form=document.querySelector<HTMLFormElement>("#domain-form");
 const resultBox=document.querySelector<HTMLElement>("#domain-results");
 const domainStatus=document.querySelector<HTMLElement>("#domain-status");
@@ -21,7 +22,7 @@ function render(r:Result):HTMLElement{
 form?.addEventListener("submit",async event=>{
  event.preventDefault();if(!domainStatus||!resultBox)return;
  const host=workerField?.value.trim().replace(/\/+$/,"")??"";
- if(!/^https:\/\/[a-z0-9.-]+\.workers\.dev$/i.test(host)){domainStatus.textContent="Introduce la URL HTTPS del Worker de dominios.";return;}
+ if(!/^https:\/\/[a-z0-9.-]+$/i.test(host)){domainStatus.textContent="Introduce la URL HTTPS del Worker de dominios.";return;}
  const domains=(document.querySelector<HTMLTextAreaElement>("#domains")?.value??"").trim();
  const candidates=[...new Set(domains.split(/[,\s]+/).filter(Boolean))];
  if(!candidates.length||candidates.length>15){domainStatus.textContent="Indica entre 1 y 15 dominios.";return;}
