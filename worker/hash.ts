@@ -36,16 +36,41 @@ async function otx(hash:string,env:HashEnv):Promise<Source>{
 async function hybrid(hash:string,env:HashEnv,sha256?:string):Promise<Source>{
  if(!env.HYBRID_API)return missing("HYBRID_API");
  return wrap(async()=>{
-  const keys=[hash,...(sha256&&sha256!==hash?[sha256]:[])];
+  const headers={"api-key":env.HYBRID_API!,"User-Agent":"Falcon Sandbox","Accept":"application/json"};
+  const keys=[...new Set([hash,...(sha256&&sha256!==hash?[sha256]:[])])];
+  const summary=(d:any,source:string):Data=>{
+   const latest=Array.isArray(d)?d[0]:d;
+   return {"Fuente de consulta":source,"Verdict":latest?.verdict??latest?.verdict_human??null,
+   "Threat Score":latest?.threat_score??null,"Threat Level":latest?.threat_level??null,
+   "AV Detections":latest?.av_detect??null,"Malware Family":latest?.vx_family??null,
+   "File Name":latest?.submit_name??latest?.file_name??null,"Environment":latest?.environment_description??null,
+   "Job ID":latest?.job_id??null};
+  };
+  let noMatches=0;
   for(const key of keys){
-   const url=new URL("https://www.hybrid-analysis.com/api/v2/search/hash");
-   url.searchParams.set("hash",key);
-   const d=await query(url.toString(),{"api-key":env.HYBRID_API!,"User-Agent":"Falcon Sandbox","Accept":"application/json"});
-   const list=Array.isArray(d)?d:Array.isArray(d?.result)?d.result:Array.isArray(d?.data)?d.data:d&&typeof d==="object"&&(d.job_id||d.sha256)?[d]:[];
-   if(list.length){const latest=list[0];return {"Coincidencias":list.length,"Hash consultado":key,"Verdict":latest.verdict??null,"Threat Score":latest.threat_score??null,"Threat Level":latest.threat_level??null,"AV Detections":latest.av_detect??null,"Malware Family":latest.vx_family??null,"File Name":latest.submit_name??null,"Environment":latest.environment_description??null,"Job ID":latest.job_id??null};}
-   if(d&&typeof d==="object"&&!Array.isArray(d)&&d.message&&/invalid|forbidden|unauthorized/i.test(String(d.message)))throw new Error("Hybrid Analysis: "+String(d.message).slice(0,120));
+   const url=new URL("https://www.hybrid-analysis.com/api/v2/search/hash");url.searchParams.set("hash",key);
+   const response=await query(url.toString(),headers);
+   const list=Array.isArray(response)?response:Array.isArray(response?.result)?response.result:Array.isArray(response?.data)?response.data:response&&(response.job_id||response.sha256)?[response]:[];
+   if(list.length)return {"Coincidencias":list.length,"Hash consultado":key,...summary(list[0],"Search API")};
+   noMatches++;
   }
-  return {"Estado":"No hay análisis accesibles con la API para este hash"};
+  // Overview can expose static/AV intelligence even when there is no sandbox report.
+  const sha=keys.find(k=>k.length===64);
+  if(sha){
+   const overview=await query("https://www.hybrid-analysis.com/api/v2/overview/"+sha,headers);
+   if(overview&&typeof overview==="object"){
+    const data=overview.result??overview;
+    if(data&&typeof data==="object"&&!Array.isArray(data)){
+     const reports=Array.isArray(data.reports)?data.reports:[];
+     return {"Estado":"Información del archivo disponible en Overview","Hash consultado":sha,
+      "SHA-256":data.sha256??sha,"Malware Family":data.vx_family??null,
+      "Threat Score":data.threat_score??null,"Threat Level":data.threat_level??null,
+      "Verdict":data.verdict??null,"Informes asociados":reports.length,
+      "AV Detections":data.av_detect??null};
+    }
+   }
+  }
+  return {"Estado":"No existen resultados accesibles con esta clave API ("+noMatches+" consultas Search y una comprobación Overview)"};
  });
 }
 async function bazaar(hash:string,env:HashEnv,sha256?:string):Promise<Source>{
