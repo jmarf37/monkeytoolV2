@@ -29,5 +29,6 @@
       "binding": "HASH_SERVICE",
       "service": "monkeytoolv2-hash"
     }
-  ]
+  ],
+  "keep_vars": true
 }
