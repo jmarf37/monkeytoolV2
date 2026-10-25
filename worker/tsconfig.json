@@ -14,6 +14,7 @@
     "domain-entry.ts",
     "domain.ts",
     "hash-entry.ts",
-    "hash.ts"
+    "hash.ts",
+    "portal-entry.ts"
   ]
 }
