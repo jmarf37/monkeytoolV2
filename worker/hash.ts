@@ -41,8 +41,8 @@ async function hybrid(hash:string,env:HashEnv,sha256?:string):Promise<Source>{
   const summary=(d:any,source:string):Data=>{
    const latest=Array.isArray(d)?d[0]:d;
    return {"Fuente de consulta":source,"Verdict":latest?.verdict??latest?.verdict_human??null,
-   "Threat Score":latest?.threat_score??null,"Threat Level":latest?.threat_level??null,
-   "AV Detections":latest?.av_detect??null,"Malware Family":latest?.vx_family??null,
+   "Threat Score":typeof latest?.threat_score==="number"?latest.threat_score+" / 100":latest?.threat_score??"No disponible mediante API","Threat Level":latest?.threat_level??null,
+   "AV Detections":latest?.av_detect??null,"Clasificación Hybrid Analysis":latest?.vx_family??null,
    "File Name":latest?.submit_name??latest?.file_name??null,"Environment":latest?.environment_description??null,
    "Job ID":latest?.job_id??null};
   };
@@ -64,7 +64,7 @@ async function hybrid(hash:string,env:HashEnv,sha256?:string):Promise<Source>{
      const obj=(x:any)=>x&&typeof x==="object"&&!Array.isArray(x)?x:{};
      const metadata=obj(data.file_metadata),info=obj(data.file_info),scan=obj(data.scanners),scannersV2=obj(data.scanners_v2),multi=obj(data.last_multi_scan),intel=obj(data.threat_intelligence);
      const first=(...values:any[])=>values.find(v=>v!==null&&v!==undefined&&v!=="")??null;
-     const asDate=(v:any)=>typeof v==="string"?v:null;
+     const asDate=(v:any)=>{if(v==null||v==="")return null;const date=typeof v==="number"?new Date(v>1e12?v:v*1000):typeof v==="string"?new Date(v):null;return date&&!Number.isNaN(date.getTime())?date.toLocaleString("es-ES",{timeZone:"UTC",day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"})+" UTC":typeof v==="string"?v:null;};
      const score=first(data.threat_score,data.threatscore,data.score,data.malware_score,intel.threat_score);
      const scanEntries=Object.entries({...scan,...scannersV2}).filter(([,value])=>value&&typeof value==="object").map(([name,value])=>({name,...obj(value)}));
      const multiEntries=Object.entries(multi).filter(([,value])=>value&&typeof value==="object").map(([name,value])=>({name,...obj(value)}));
@@ -77,20 +77,24 @@ async function hybrid(hash:string,env:HashEnv,sha256?:string):Promise<Source>{
      const malicious=indicators.filter((x:any)=>/malicious/i.test(String(x?.type??x?.classification??x?.severity??""))).length;
      const suspicious=indicators.filter((x:any)=>/suspicious/i.test(String(x?.type??x?.classification??x?.severity??""))).length;
      const informative=indicators.filter((x:any)=>/informative|info/i.test(String(x?.type??x?.classification??x?.severity??""))).length;
-     const result:Data={"Estado":"Información del archivo disponible en Overview","Hash consultado":sha,
+     const result:Data={"Estado":"Información del archivo disponible en Overview",
       "SHA-256":first(data.sha256,metadata.sha256),
       "SHA-1":first(data.sha1,metadata.sha1),
       "MD5":first(data.md5,metadata.md5),
       "File Type":first(data.type,data.type_short,metadata.type),
       "File Size":first(data.size,metadata.size,info.size),
-      "Malware Family":first(data.vx_family,data.malware_family),
-      "Threat Score":score??"No disponible mediante API","Threat Level":first(data.threat_level,data.threat_level_human),
+      "Clasificación Hybrid Analysis":first(data.vx_family,data.malware_family),
+      "Threat Score":typeof score==="number"?score+" / 100":score??"No disponible mediante API","Threat Level":first(data.threat_level,data.threat_level_human),
       "Verdict":first(data.verdict,data.verdict_human),
       "AV Detections":avCount!=null&&avTotal!=null?String(avCount)+" / "+String(avTotal):avCount&&typeof avCount==="object"?first(avCount.count,avCount.malicious):avCount,
       "CrowdStrike Falcon":first(crowdstrike?.verdict,crowdstrike?.status,crowdstrike?.result),
       "First Seen":asDate(first(data.first_seen,info.first_seen,data.first_seen_at)),
       "Last Analyzed":asDate(first(data.last_analysis,info.last_analyzed,data.last_analyzed_at)),
       "Tags":Array.isArray(data.tags)?data.tags.join(", ")||null:data.tags||null};
+     if(result["First Seen"]==null)delete result["First Seen"];
+     if(result["Last Analyzed"]==null)delete result["Last Analyzed"];
+     if(Array.isArray(data.tags)){const tags=data.tags.map((t:any)=>String(t)).filter(Boolean);result["Tags"]=tags.length?tags.slice(0,15).join(", ")+(tags.length>15?" (15 de "+tags.length+" etiquetas)":""):null;}
+     else if(typeof data.tags==="string"&&data.tags.trim()){const tags=data.tags.split(",").map((t:string)=>t.trim()).filter(Boolean);result["Tags"]=tags.slice(0,15).join(", ")+(tags.length>15?" (15 de "+tags.length+" etiquetas)":"");}
      if(indicators.length){result["Indicators Total"]=indicators.length;result["Malicious Indicators"]=malicious;result["Suspicious Indicators"]=suspicious;result["Informative Indicators"]=informative;}
      const resultEntries=avEngines.flatMap(x=>Array.isArray(x.anti_virus_results)?x.anti_virus_results:[]);
      if(resultEntries.length)result["AV detections detail"]=resultEntries.filter((x:any)=>/malicious|infected|detected/i.test(String(x?.result??x?.status??x?.verdict??""))).slice(0,15).map((x:any)=>[x?.name??x?.engine??"AV",x?.result??x?.verdict??"Detected"].join(": ")).join("; ")||"Ninguna detección detallada";
