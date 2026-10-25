@@ -56,7 +56,7 @@ export default {async fetch(req:Request,env:Env):Promise<Response>{
  if(!user){
    if(p==="/login/"||p==="/login")return env.ASSETS.fetch(new Request(new URL("/login/",url),req));
    if(p.startsWith("/api/"))return json({error:"Inicia sesión para utilizar Monkeytools"},401);
-   if(p==="/favicon.ico")return env.ASSETS.fetch(req);
+   if(p==="/favicon.ico"||p.startsWith("/assets/"))return env.ASSETS.fetch(req);
    return Response.redirect(url.origin+"/login/",302);
  }
  if(p==="/login"||p==="/login/")return Response.redirect(url.origin+"/",302);
