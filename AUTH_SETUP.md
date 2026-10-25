@@ -51,4 +51,4 @@ Cloudflare → Worker `monkeytools-portal` → Domains & Routes → Custom Domai
 D1 ya separa identidad y sesiones. Podemos añadir roles y claves API individuales **cifradas mediante WebCrypto con clave maestra como secreto de Worker**, además de límites de uso y auditoría. No almacenar jamás claves individuales en el frontend.
 
 ## Seguridad adicional
-Activar Cloudflare WAF/rate-limiting para `/api/auth/login` y `/api/auth/setup`, y monitorizar intentos de acceso. Las contraseñas utilizan PBKDF2-SHA256 y 310.000 iteraciones con sal individual; las sesiones se almacenan mediante hash SHA-256 en D1, duran 24 horas y usan cookie HttpOnly/Secure/SameSite=Lax.
+Activar Cloudflare WAF/rate-limiting para `/api/auth/login` y `/api/auth/setup`, y monitorizar intentos de acceso. Las contraseñas utilizan PBKDF2-SHA256 y 100.000 iteraciones con sal individual; las sesiones se almacenan mediante hash SHA-256 en D1, duran 24 horas y usan cookie HttpOnly/Secure/SameSite=Lax.
