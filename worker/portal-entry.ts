@@ -3,7 +3,7 @@ const enc=new TextEncoder();
 const toHex=(a:Uint8Array)=>Array.from(a).map(x=>x.toString(16).padStart(2,"0")).join("");
 const random=(n:number)=>toHex(crypto.getRandomValues(new Uint8Array(n)));
 async function digest(s:string){return toHex(new Uint8Array(await crypto.subtle.digest("SHA-256",enc.encode(s))))}
-async function passwordHash(password:string,salt:string,iterations=310000){
+async function passwordHash(password:string,salt:string,iterations=100000){
  const key=await crypto.subtle.importKey("raw",enc.encode(password),"PBKDF2",false,["deriveBits"]);
  return toHex(new Uint8Array(await crypto.subtle.deriveBits({name:"PBKDF2",salt:enc.encode(salt),iterations,hash:"SHA-256"},key,256)));
 }
@@ -37,7 +37,7 @@ export default {async fetch(req:Request,env:Env):Promise<Response>{
    const user=String(input.username??"").trim().toLowerCase(),password=String(input.password??"");
    if(!/^[a-z0-9_.-]{3,40}$/.test(user)||password.length<16||password.length>256)return json({error:"Usuario inválido o contraseña de menos de 16 caracteres"},400);
    const salt=random(24),hash=await passwordHash(password,salt),id=crypto.randomUUID();
-   await env.DB.prepare("INSERT INTO users (id,username,password_salt,password_hash,password_iterations,role,created_at) VALUES (?,?,?,?,?,'admin',?)").bind(id,user,salt,hash,310000,now()).run();
+   await env.DB.prepare("INSERT INTO users (id,username,password_salt,password_hash,password_iterations,role,created_at) VALUES (?,?,?,?,?,'admin',?)").bind(id,user,salt,hash,100000,now()).run();
    return json({ok:true,message:"Administrador creado. Elimina ADMIN_SETUP_TOKEN de los secretos del Worker."},201);
   }catch(error){console.error("Admin setup failure",error);return json({error:"Fallo interno al crear administrador. Revisa Worker Observability → Logs."},500);}
  }
@@ -47,7 +47,7 @@ export default {async fetch(req:Request,env:Env):Promise<Response>{
    if(username.length>40||password.length>256)return json({error:"Credenciales incorrectas"},401);
    const user=await env.DB.prepare("SELECT id,username,password_salt,password_hash,password_iterations,active FROM users WHERE username=?").bind(username).first<{id:string;username:string;password_salt:string;password_hash:string;password_iterations:number;active:number}>();
    // Derivación también para usuarios inexistentes: evita respuestas demasiado rápidas.
-   const calc=await passwordHash(password,user?.password_salt??"fallback-salt-login",user?.password_iterations??310000);
+   const calc=await passwordHash(password,user?.password_salt??"fallback-salt-login",user?.password_iterations??100000);
    if(!user||!user.active||!constant(calc,user.password_hash))return json({error:"Credenciales incorrectas"},401);
    const token=random(32);await env.DB.prepare("INSERT INTO sessions(id_hash,user_id,expires_at,created_at) VALUES(?,?,?,?)").bind(await digest(token),user.id,now()+86400,now()).run();
    return json({ok:true,username:user.username},200,{"set-cookie":cookie(token,86400)});
