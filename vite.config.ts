@@ -2,7 +2,7 @@ import { defineConfig } from "vite";
 import { resolve } from "node:path";
 
 export default defineConfig({
-  base: "/monkeytoolV2/",
+  base: process.env.CF_DEPLOY === "1" ? "/" : "/monkeytoolV2/",
   build: {
     rollupOptions: {
       input: {
