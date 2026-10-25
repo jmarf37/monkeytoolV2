@@ -15,3 +15,14 @@ body>.container{padding-left:calc(142px + 24px);max-width:1700px;margin:auto}
 
 /* Fondo exclusivo de la portada; se conserva el original como respaldo hasta subir el archivo */
 .home-page .backdrop{background-image:url("./assets/portada.webp"),url("https://raw.githubusercontent.com/jmarf37/monkeytools/main/assets/fondo.png");background-position:center;background-size:cover;background-repeat:no-repeat}
+
+/* Branding y amplitud de la barra lateral (sobrescribe estilos anteriores) */
+@media(min-width:731px){
+ .side-navigation{width:224px;padding:24px 17px;gap:12px}
+ body>.container{padding-left:calc(224px + 24px)}
+ .side-navigation a:not(.side-brand){font-size:.88rem;padding:14px 13px}
+ .side-navigation .side-brand{display:flex;flex-direction:column;align-items:center;gap:17px;margin-bottom:22px;padding:5px 0 25px;white-space:normal;letter-spacing:-.025em}
+}
+.side-navigation .side-brand strong{color:#fff;font-size:1.24rem;line-height:1.15;letter-spacing:-.035em}
+.side-logo{width:115px;max-width:100%;height:auto;object-fit:contain;opacity:.94}
+@media(max-width:730px){.side-navigation .side-brand{display:none}}
