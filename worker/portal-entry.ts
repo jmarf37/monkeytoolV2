@@ -27,6 +27,7 @@ export default {async fetch(req:Request,env:Env):Promise<Response>{
    catch{return json({setup_enabled:Boolean(env.ADMIN_SETUP_TOKEN),database_ready:false,admin_exists:null});}
  }
  if(p==="/api/auth/setup"&&req.method==="POST"){
+  try{
    if(!env.ADMIN_SETUP_TOKEN)return json({error:"Inicialización deshabilitada"},403);
    const token=req.headers.get("x-setup-token")??"";
    if(!constant(token,env.ADMIN_SETUP_TOKEN))return json({error:"No autorizado"},403);
@@ -38,6 +39,7 @@ export default {async fetch(req:Request,env:Env):Promise<Response>{
    const salt=random(24),hash=await passwordHash(password,salt),id=crypto.randomUUID();
    await env.DB.prepare("INSERT INTO users (id,username,password_salt,password_hash,password_iterations,role,created_at) VALUES (?,?,?,?,?,'admin',?)").bind(id,user,salt,hash,310000,now()).run();
    return json({ok:true,message:"Administrador creado. Elimina ADMIN_SETUP_TOKEN de los secretos del Worker."},201);
+  }catch(error){console.error("Admin setup failure",error);return json({error:"Fallo interno al crear administrador. Revisa Worker Observability → Logs."},500);}
  }
  if(p==="/api/auth/login"&&req.method==="POST"){
    let input:any;try{input=await body(req)}catch{return json({error:"Petición inválida"},400)}
