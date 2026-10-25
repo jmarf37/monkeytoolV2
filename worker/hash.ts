@@ -133,7 +133,20 @@ export async function analyzeHash(hash:string,env:HashEnv){
  const sha256=typeof v.data["SHA-256"]==="string"&&validHash(v.data["SHA-256"] as string)?v.data["SHA-256"] as string:undefined;
  const [h,b]=await Promise.all([hybrid(hash,env,sha256),bazaar(hash,env,sha256)]);
  const sources={virustotal:v,alienvault:o,hybridanalysis:h,malwarebazaar:b};
+ // Solo informar de ausencia global cuando las cuatro consultas han finalizado sin error.
+ // Un hash presente en VirusTotal puede tener cero detecciones y seguir siendo un resultado válido.
+ const notFound=(source:Source,key:string):boolean=>{
+  if(source.error)return false;
+  if(key==="virustotal")return source.data["Estado"]==="Sin resultados";
+  if(key==="alienvault")return source.data["Estado"]==="Sin resultados" || Number(source.data["Pulse Info Count"]??0)===0;
+  if(key==="hybridanalysis")return typeof source.data["Estado"]==="string" && /^(No existen resultados accesibles|No hay análisis accesibles)/.test(String(source.data["Estado"]));
+  if(key==="malwarebazaar")return source.data["Estado"]==="Hash no registrado en MalwareBazaar" || source.data["Estado"]==="Sin resultados";
+  return false;
+ };
+ const entries=Object.entries(sources);
+ const allNotFound=entries.every(([key,source])=>notFound(source,key));
  const lines=["Análisis Reputacional -> "+hash,"","Tipo: "+kind(hash),""];
+ if(allNotFound)lines.push("Hash no detectado en las fuentes abiertas de análisis reputacional (VirusTotal, AlienVault OTX, Hybrid Analysis y MalwareBazaar).","");
  for(const [key,label] of [["virustotal","VIRUSTOTAL"],["alienvault","AlienVault OTX"],["hybridanalysis","Hybrid Analysis"],["malwarebazaar","MalwareBazaar"]] as const){
  lines.push("######### "+label+" #########");
  const src=sources[key];if(src.error)lines.push("ERROR: "+src.error);else for(const [field,value] of Object.entries(src.data))lines.push(field+": "+fmt(value));lines.push("");
