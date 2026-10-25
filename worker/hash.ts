@@ -146,10 +146,12 @@ export async function analyzeHash(hash:string,env:HashEnv){
  const entries=Object.entries(sources);
  const allNotFound=entries.every(([key,source])=>notFound(source,key));
  const lines=["Análisis Reputacional -> "+hash,"","Tipo: "+kind(hash),""];
- if(allNotFound)lines.push("Hash no detectado en las fuentes abiertas de análisis reputacional (VirusTotal, AlienVault OTX, Hybrid Analysis y MalwareBazaar).","");
+ if(allNotFound)lines.push("Hash no detectado en las fuentes abiertas de análisis reputacional de VirusTotal, AlienVault OTX, Hybrid Analysis y MalwareBazaar.","");
+ if(!allNotFound){
  for(const [key,label] of [["virustotal","VIRUSTOTAL"],["alienvault","AlienVault OTX"],["hybridanalysis","Hybrid Analysis"],["malwarebazaar","MalwareBazaar"]] as const){
  lines.push("######### "+label+" #########");
  const src=sources[key];if(src.error)lines.push("ERROR: "+src.error);else for(const [field,value] of Object.entries(src.data))lines.push(field+": "+fmt(value));lines.push("");
+ }
  }
  lines.push("######### Enlaces a los análisis #########",
  "VirusTotal: https://www.virustotal.com/gui/file/"+hash,
