@@ -62,11 +62,17 @@ async function hybrid(hash:string,env:HashEnv,sha256?:string):Promise<Source>{
     const data=overview.result??overview;
     if(data&&typeof data==="object"&&!Array.isArray(data)){
      const obj=(x:any)=>x&&typeof x==="object"&&!Array.isArray(x)?x:{};
-     const metadata=obj(data.file_metadata),info=obj(data.file_info),av=obj(data.av_detect),scan=obj(data.scanners),intel=obj(data.threat_intelligence);
+     const metadata=obj(data.file_metadata),info=obj(data.file_info),scan=obj(data.scanners),scannersV2=obj(data.scanners_v2),multi=obj(data.last_multi_scan),intel=obj(data.threat_intelligence);
      const first=(...values:any[])=>values.find(v=>v!==null&&v!==undefined&&v!=="")??null;
      const asDate=(v:any)=>typeof v==="string"?v:null;
      const score=first(data.threat_score,data.threatscore,data.score,data.malware_score,intel.threat_score);
-     const avCount=first(data.av_detect,data.av_detections,data.av_detections_count,scan.malicious,scan.detected);
+     const scanEntries=Object.entries({...scan,...scannersV2}).filter(([,value])=>value&&typeof value==="object").map(([name,value])=>({name,...obj(value)}));
+     const multiEntries=Object.entries(multi).filter(([,value])=>value&&typeof value==="object").map(([name,value])=>({name,...obj(value)}));
+     const avEngines=[...scanEntries,...multiEntries];
+     const metaDefender=avEngines.find(x=>/metadefender/i.test(x.name));
+     const avCount=first(data.av_detect,data.av_detections,data.av_detections_count,metaDefender?.positives,metaDefender?.malicious);
+     const avTotal=first(metaDefender?.total,metaDefender?.total_engines);
+     const crowdstrike=avEngines.find(x=>/crowdstrike/i.test(x.name));
      const indicators=Array.isArray(data.indicators)?data.indicators:[];
      const malicious=indicators.filter((x:any)=>/malicious/i.test(String(x?.type??x?.classification??x?.severity??""))).length;
      const suspicious=indicators.filter((x:any)=>/suspicious/i.test(String(x?.type??x?.classification??x?.severity??""))).length;
@@ -81,10 +87,16 @@ async function hybrid(hash:string,env:HashEnv,sha256?:string):Promise<Source>{
       "Threat Score":score,"Threat Level":first(data.threat_level,data.threat_level_human),
       "Verdict":first(data.verdict,data.verdict_human),
       "AV Detections":avCount&&typeof avCount==="object"?first(avCount.count,avCount.malicious):avCount,
+      "AV Total Engines":avTotal,
+      "CrowdStrike Falcon":first(crowdstrike?.verdict,crowdstrike?.status,crowdstrike?.result),
       "First Seen":asDate(first(data.first_seen,info.first_seen,data.first_seen_at)),
       "Last Analyzed":asDate(first(data.last_analysis,info.last_analyzed,data.last_analyzed_at)),
       "Tags":Array.isArray(data.tags)?data.tags.join(", "):data.tags??null};
      if(indicators.length){result["Indicators Total"]=indicators.length;result["Malicious Indicators"]=malicious;result["Suspicious Indicators"]=suspicious;result["Informative Indicators"]=informative;}
+     const resultEntries=avEngines.flatMap(x=>Array.isArray(x.anti_virus_results)?x.anti_virus_results:[]);
+     if(resultEntries.length)result["AV detections detail"]=resultEntries.filter((x:any)=>/malicious|infected|detected/i.test(String(x?.result??x?.status??x?.verdict??""))).slice(0,15).map((x:any)=>[x?.name??x?.engine??"AV",x?.result??x?.verdict??"Detected"].join(": ")).join("; ")||"Ninguna detección detallada";
+     const scanInfo=avEngines.filter(x=>x.name&&first(x.positives,x.total,x.status,x.verdict)!==null).map(x=>x.name+": "+[x.positives!==undefined?x.positives+" detecciones":null,x.total!==undefined?"/ "+x.total+" motores":null,x.status??null].filter(Boolean).join(" ")).slice(0,8);
+     if(scanInfo.length)result["Escáneres disponibles"]=scanInfo.join("; ");
      const avResults=first(data.antivirus,data.av_results,data.av_scanners,data.multi_scan_result);
      if(Array.isArray(avResults))result["Antivirus Results"]=avResults.slice(0,20).map((x:any)=>[x?.name??x?.engine??"AV",x?.result??x?.verdict??x?.detection??"N/A"].join(": ")).join("; ");
      const keys=Object.keys(data).filter(x=>/^(threat|score|av|indicator|first|last|file|scan|malware|verdict|report|detect)/i.test(x)).slice(0,24);
