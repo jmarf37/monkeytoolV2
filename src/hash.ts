@@ -1,6 +1,6 @@
 export {};
 type Result={hash:string;type:string;report_text:string;sources:Record<string,{data:Record<string,unknown>;error?:string}>};
-const ENDPOINT="https://monkeytoolv2-hash.jesusmartinezferrer.workers.dev";
+const ENDPOINT=location.hostname!=="jmarf37.github.io"&&(location.hostname==="monkeytools.es"||location.hostname.endsWith(".workers.dev"))?location.origin:"https://monkeytoolv2-hash.jesusmartinezferrer.workers.dev";
 const form=document.querySelector<HTMLFormElement>("#hash-form");
 const status=document.querySelector<HTMLElement>("#hash-status");
 const output=document.querySelector<HTMLElement>("#hash-results");
