@@ -21,38 +21,55 @@ async function vt(hash:string,env:HashEnv):Promise<Source>{
  "File Name":d.meaningful_name??d.names?.[0]??null,"File Type":d.type_description??null,"Size (bytes)":d.size??null,
  "MD5":d.md5??null,"SHA-1":d.sha1??null,"SHA-256":d.sha256??null,
  "Reputation":d.reputation??null,"First Submission":stamp(d.first_submission_date),"Last Analysis":stamp(d.last_analysis_date),
- "Popular Threat Classification":d.popular_threat_classification??null};
+ "Threat Label":d.popular_threat_classification?.suggested_threat_label??null,
+ "Popular Threat Names":(d.popular_threat_classification?.popular_threat_name??[]).map((p:any)=>p.value+" ("+p.count+")").join(", ")||"N/A",
+ "Popular Threat Categories":(d.popular_threat_classification?.popular_threat_category??[]).map((p:any)=>p.value+" ("+p.count+")").join(", ")||"N/A"};
  });
 }
 async function otx(hash:string,env:HashEnv):Promise<Source>{
  if(!env.ALIEN_API)return missing("ALIEN_API");
  return wrap(async()=>{const d=await query("https://otx.alienvault.com/api/v1/indicators/file/"+hash+"/general",{"X-OTX-API-KEY":env.ALIEN_API!});
  if(!d)return {"Estado":"Sin resultados"};
- return {"Hash":hash,"Pulse Info Count":d.pulse_info?.count??0,"Pulse Info IDs":(d.pulse_info?.pulses??[]).slice(0,20).map((p:any)=>p.id).filter(Boolean),"Type":d.type??null,"Sections":d.sections??null};
+ return {"Hash":hash,"Pulse Info Count":d.pulse_info?.count??0,"Pulse Info IDs":(d.pulse_info?.pulses??[]).slice(0,20).map((p:any)=>p.id).filter(Boolean),"Type":d.type??null,"Sections":Array.isArray(d.sections)?d.sections.join(", "):d.sections??null};
  });
 }
-async function hybrid(hash:string,env:HashEnv):Promise<Source>{
+async function hybrid(hash:string,env:HashEnv,sha256?:string):Promise<Source>{
  if(!env.HYBRID_API)return missing("HYBRID_API");
- return wrap(async()=>{const url=new URL("https://www.hybrid-analysis.com/api/v2/search/hash");url.searchParams.set("hash",hash);
- const d=await query(url.toString(),{"api-key":env.HYBRID_API!,"User-Agent":"Falcon Sandbox","accept":"application/json"});
- const list=Array.isArray(d)?d:Array.isArray(d?.result)?d.result:[];
- if(!list.length)return {"Estado":"Sin resultados"};
- const latest=list[0];return {"Matches":list.length,"Verdict":latest.verdict??null,"Threat Score":latest.threat_score??null,"Threat Level":latest.threat_level??null,"AV Detections":latest.av_detect??null,"Malware Family":latest.vx_family??null,"File Name":latest.submit_name??null,"Environment":latest.environment_description??null,"Job ID":latest.job_id??null};
+ return wrap(async()=>{
+  const keys=[hash,...(sha256&&sha256!==hash?[sha256]:[])];
+  for(const key of keys){
+   const url=new URL("https://www.hybrid-analysis.com/api/v2/search/hash");
+   url.searchParams.set("hash",key);
+   const d=await query(url.toString(),{"api-key":env.HYBRID_API!,"User-Agent":"Falcon Sandbox","Accept":"application/json"});
+   const list=Array.isArray(d)?d:Array.isArray(d?.result)?d.result:Array.isArray(d?.data)?d.data:d&&typeof d==="object"&&(d.job_id||d.sha256)?[d]:[];
+   if(list.length){const latest=list[0];return {"Coincidencias":list.length,"Hash consultado":key,"Verdict":latest.verdict??null,"Threat Score":latest.threat_score??null,"Threat Level":latest.threat_level??null,"AV Detections":latest.av_detect??null,"Malware Family":latest.vx_family??null,"File Name":latest.submit_name??null,"Environment":latest.environment_description??null,"Job ID":latest.job_id??null};}
+   if(d&&typeof d==="object"&&!Array.isArray(d)&&d.message&&/invalid|forbidden|unauthorized/i.test(String(d.message)))throw new Error("Hybrid Analysis: "+String(d.message).slice(0,120));
+  }
+  return {"Estado":"No hay análisis accesibles con la API para este hash"};
  });
 }
-async function bazaar(hash:string,env:HashEnv):Promise<Source>{
+async function bazaar(hash:string,env:HashEnv,sha256?:string):Promise<Source>{
  if(!env.MALWAREBAZAAR_API)return missing("MALWAREBAZAAR_API");
- return wrap(async()=>{const body=new URLSearchParams({query:"get_info",hash});
- const d=await query("https://mb-api.abuse.ch/api/v1/",{"Auth-Key":env.MALWAREBAZAAR_API!,"Content-Type":"application/x-www-form-urlencoded"},{method:"POST",body:body.toString()});
- if(!d||d.query_status==="hash_not_found")return {"Estado":"Sin resultados"};
- if(d.query_status!=="ok")throw new Error("MalwareBazaar: "+String(d.query_status??"error").slice(0,100));
- const a=d.data?.[0]??{};
- return {"SHA-256":a.sha256_hash??null,"SHA-1":a.sha1_hash??null,"MD5":a.md5_hash??null,"File Name":a.file_name??null,"File Type":a.file_type??null,"File Size":a.file_size??null,"Signature":a.signature??null,"First Seen":a.first_seen??null,"Last Seen":a.last_seen??null,"Tags":a.tags??[],"Reporter":a.reporter??null};
+ return wrap(async()=>{
+  const keys=[hash,...(sha256&&sha256!==hash?[sha256]:[])];
+  for(const key of keys){
+   const body=new URLSearchParams({query:"get_info",hash:key});
+   const d=await query("https://mb-api.abuse.ch/api/v1/",{"Auth-Key":env.MALWAREBAZAAR_API!,"Content-Type":"application/x-www-form-urlencoded"},{method:"POST",body:body.toString()});
+   if(!d)throw new Error("MalwareBazaar no devolvió datos");
+   if(d.query_status==="hash_not_found")continue;
+   if(d.query_status==="illegal_hash")throw new Error("MalwareBazaar rechazó el formato de hash");
+   if(d.query_status!=="ok")throw new Error("MalwareBazaar: "+String(d.query_status??"error").slice(0,100));
+   const a=d.data?.[0]??{};
+   return {"SHA-256":a.sha256_hash??null,"SHA-1":a.sha1_hash??null,"MD5":a.md5_hash??null,"File Name":a.file_name??null,"File Type":a.file_type??null,"File Size":a.file_size??null,"Signature":a.signature??null,"First Seen":a.first_seen??null,"Last Seen":a.last_seen??null,"Tags":Array.isArray(a.tags)?a.tags.join(", "):a.tags??null,"Reporter":a.reporter??null};
+  }
+  return {"Estado":"Hash no registrado en MalwareBazaar"};
  });
 }
 function fmt(value:unknown):string{return value==null?"N/A":typeof value==="object"?JSON.stringify(value,null,2):String(value)}
 export async function analyzeHash(hash:string,env:HashEnv){
- const [v,o,h,b]=await Promise.all([vt(hash,env),otx(hash,env),hybrid(hash,env),bazaar(hash,env)]);
+ const [v,o]=await Promise.all([vt(hash,env),otx(hash,env)]);
+ const sha256=typeof v.data["SHA-256"]==="string"&&validHash(v.data["SHA-256"] as string)?v.data["SHA-256"] as string:undefined;
+ const [h,b]=await Promise.all([hybrid(hash,env,sha256),bazaar(hash,env,sha256)]);
  const sources={virustotal:v,alienvault:o,hybridanalysis:h,malwarebazaar:b};
  const lines=["Análisis Reputacional -> "+hash,"","Tipo: "+kind(hash),""];
  for(const [key,label] of [["virustotal","VIRUSTOTAL"],["alienvault","AlienVault OTX"],["hybridanalysis","Hybrid Analysis"],["malwarebazaar","MalwareBazaar"]] as const){
