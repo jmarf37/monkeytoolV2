@@ -13,7 +13,7 @@
     {
       "binding": "DB",
       "database_name": "monkeytools-auth",
-      "database_id": "REPLACE_WITH_D1_DATABASE_ID"
+      "database_id": "948fdf71-9b8b-4abc-a4e7-90ce9caa5104"
     }
   ],
   "services": [
