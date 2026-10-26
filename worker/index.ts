@@ -1,7 +1,7 @@
 export interface Env { VT_API?:string; ABUSE_API?:string; ALIEN_API?:string; IPQ_API?:string; IPQS_PROXY_URL?:string; IPQS_PROXY_TOKEN?:string; BLACKLIST_URL?:string; ALLOWED_ORIGIN?:string; }
 type Fields=Record<string,unknown>;
 type Source={data:Fields;error?:string};
-const urls={vt:"https://www.virustotal.com/api/v3/ip_addresses/",abuse:"https://api.abuseipdb.com/api/v2/check",otx:"https://otx.alienvault.com/api/v1/indicators/IPv4/",ipqs:"https://www.ipqualityscore.com/api/json/ip/",rdap:"https://rdap.org/ip/"};
+const urls={vt:"https://www.virustotal.com/api/v3/ip_addresses/",abuse:"https://api.abuseipdb.com/api/v2/check",otx:"https://otx.alienvault.com/api/v1/indicators/",ipqs:"https://www.ipqualityscore.com/api/json/ip/",rdap:"https://rdap.org/ip/"};
 const DEFAULT_BLACKLIST="https://dist.s2grupo.es/blacklist/ieoel2ganfaxpu81q2k0u5d1u0jzh3m6ogqf8xfliwpxwnocve2famnuscjf6cb0i/IP_list.txt";
 function isIP(value:string):boolean {
  if (!value || value.length>45 || /[^0-9a-fA-F:.]/.test(value)) return false;
@@ -33,13 +33,11 @@ async function abuse(ip:string,env:Env):Promise<Source>{
  return guarded(async()=>{const u=new URL(urls.abuse);u.searchParams.set("ipAddress",ip);u.searchParams.set("maxAgeInDays","90");const d=(await getJSON(u.toString(),{Accept:"application/json",Key:env.ABUSE_API!})).data??{};return {"Whitelist":ip+(d.isWhitelisted?" is whitelisted.":" is not whitelisted."),"Reports":"This IP ("+ip+") was reported "+(d.totalReports??"N/A")+" times.","Confidence of abuse":d.abuseConfidenceScore,"ISP":d.isp,"Usage Type":d.usageType,"Country":d.countryCode,"Hostnames":(d.hostnames??[]).join(", "),"Domain Name":d.domain,"Last Reported":d.lastReportedAt,"TOR":d.isTor};});
 }
 async function otx(ip:string,env:Env):Promise<Source>{
- if(ip.includes(":"))return {data:{},error:"La integración OTX original está configurada para IPv4"};
  if(!env.ALIEN_API)return missing("ALIEN_API");
- return guarded(async()=>{const d=await getJSON(urls.otx+encodeURIComponent(ip)+"/general",{"X-OTX-API-KEY":env.ALIEN_API!});return {"IP":d.indicator,"Pulse Info Count":d.pulse_info?.count,"Pulse Info IDs":(d.pulse_info?.pulses??[]).map((p:any)=>p.id).filter(Boolean),"Continent Code":d.continent_code,"Country Code":d.country_code2,"Latitude":d.latitude,"Longitude":d.longitude,"ASN":d.asn};});
+ return guarded(async()=>{const d=await getJSON(urls.otx+(ip.includes(":")?"IPv6/":"IPv4/")+encodeURIComponent(ip)+"/general",{"X-OTX-API-KEY":env.ALIEN_API!});return {"IP":d.indicator,"Pulse Info Count":d.pulse_info?.count,"Pulse Info IDs":(d.pulse_info?.pulses??[]).map((p:any)=>p.id).filter(Boolean),"Continent Code":d.continent_code,"Country Code":d.country_code2,"Latitude":d.latitude,"Longitude":d.longitude,"ASN":d.asn};});
 }
 async function ipqs(ip:string,env:Env):Promise<Source>{
  if(env.IPQS_PROXY_URL&&env.IPQS_PROXY_TOKEN){
-   if(ip.includes(":"))return {data:{},error:"El microservicio IPQS está configurado para IPv4"};
    return guarded(async()=>{
      let url:URL;
      try{url=new URL(env.IPQS_PROXY_URL!)}catch{throw new Error("IPQS_PROXY_URL inválida")}
