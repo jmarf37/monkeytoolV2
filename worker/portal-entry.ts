@@ -12,11 +12,16 @@ const json=(obj:unknown,status=200,extra:HeadersInit={})=>new Response(JSON.stri
 // Cookie de sesión: se elimina al cerrar el navegador (salvo restauración de sesión del navegador).
 const cookie=(token:string)=>"mt_session="+token+"; Path=/; HttpOnly; Secure; SameSite=Lax";
 const clearCookie=()=>"mt_session=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0";
-const SESSION_SECONDS=30*60;
+const SESSION_SECONDS=9*60*60; // Nueve horas desde la última petición autenticada
 const now=()=>Math.floor(Date.now()/1000);
 async function auth(req:Request,env:Env){
  const token=req.headers.get("cookie")?.match(/(?:^|;\s*)mt_session=([a-f0-9]{64})(?:;|$)/)?.[1];if(!token)return null;
- const row=await env.DB.prepare("SELECT u.id,u.username,u.role FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.id_hash=? AND s.expires_at>? AND u.active=1").bind(await digest(token),now()).first<{id:string;username:string;role:string}>();
+ const current=now(),tokenHash=await digest(token);
+ // Renueva el vencimiento solo si la sesión sigue activa y no ha caducado.
+ // El UPDATE es condicional para impedir que peticiones caducadas revivan la sesión.
+ const renewed=await env.DB.prepare("UPDATE sessions SET expires_at=? WHERE id_hash=? AND expires_at>? AND user_id IN (SELECT id FROM users WHERE active=1) RETURNING user_id").bind(current+SESSION_SECONDS,tokenHash,current).first<{user_id:string}>();
+ if(!renewed)return null;
+ const row=await env.DB.prepare("SELECT id,username,role FROM users WHERE id=? AND active=1").bind(renewed.user_id).first<{id:string;username:string;role:string}>();
  return row??null;
 }
 const body=async(req:Request)=>{if(Number(req.headers.get("content-length")??0)>4096)throw Error("Petición demasiado grande");return req.json() as Promise<any>};
