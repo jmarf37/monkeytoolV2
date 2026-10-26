@@ -14,12 +14,14 @@ const cookie=(token:string)=>"mt_session="+token+"; Path=/; HttpOnly; Secure; Sa
 const clearCookie=()=>"mt_session=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0";
 const SESSION_SECONDS=9*60*60; // Nueve horas desde la última petición autenticada
 const now=()=>Math.floor(Date.now()/1000);
-async function auth(req:Request,env:Env){
+async function auth(req:Request,env:Env,renew=true){
  const token=req.headers.get("cookie")?.match(/(?:^|;\s*)mt_session=([a-f0-9]{64})(?:;|$)/)?.[1];if(!token)return null;
  const current=now(),tokenHash=await digest(token);
  // Renueva el vencimiento solo si la sesión sigue activa y no ha caducado.
  // El UPDATE es condicional para impedir que peticiones caducadas revivan la sesión.
- const renewed=await env.DB.prepare("UPDATE sessions SET expires_at=? WHERE id_hash=? AND expires_at>? AND user_id IN (SELECT id FROM users WHERE active=1) RETURNING user_id").bind(current+SESSION_SECONDS,tokenHash,current).first<{user_id:string}>();
+ const renewed=renew
+   ? await env.DB.prepare("UPDATE sessions SET expires_at=? WHERE id_hash=? AND expires_at>? AND user_id IN (SELECT id FROM users WHERE active=1) RETURNING user_id").bind(current+SESSION_SECONDS,tokenHash,current).first<{user_id:string}>()
+   : await env.DB.prepare("SELECT user_id FROM sessions WHERE id_hash=? AND expires_at>? AND user_id IN (SELECT id FROM users WHERE active=1)").bind(tokenHash,current).first<{user_id:string}>();
  if(!renewed)return null;
  const row=await env.DB.prepare("SELECT id,username,role FROM users WHERE id=? AND active=1").bind(renewed.user_id).first<{id:string;username:string;role:string}>();
  return row??null;
@@ -70,7 +72,8 @@ export default {async fetch(req:Request,env:Env):Promise<Response>{
    if(token)await env.DB.prepare("DELETE FROM sessions WHERE id_hash=?").bind(await digest(token)).run();
    return json({ok:true},200,{"set-cookie":clearCookie()});
  }
- const user=await auth(req,env);
+ const user=await auth(req,env,p!=="/api/auth/status");
+ if(p==="/api/auth/status")return user?json({authenticated:true}):json({authenticated:false},401);
  if(p==="/api/auth/me")return user?json({authenticated:true,username:user.username,role:user.role}):json({authenticated:false},401);
  if(!user){
    if(p==="/login/"||p==="/login")return env.ASSETS.fetch(new Request(new URL("/login/",url),req));
