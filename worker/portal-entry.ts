@@ -9,7 +9,10 @@ async function passwordHash(password:string,salt:string,iterations=100000){
 }
 function constant(a:string,b:string){const aa=enc.encode(a),bb=enc.encode(b);let diff=aa.length^bb.length;for(let i=0;i<Math.max(aa.length,bb.length);i++)diff|=(aa[i]??0)^(bb[i]??0);return diff===0}
 const json=(obj:unknown,status=200,extra:HeadersInit={})=>new Response(JSON.stringify(obj),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store",...extra}});
-const cookie=(token:string,max:number)=>"mt_session="+token+"; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age="+max;
+// Cookie de sesión: se elimina al cerrar el navegador (salvo restauración de sesión del navegador).
+const cookie=(token:string)=>"mt_session="+token+"; Path=/; HttpOnly; Secure; SameSite=Lax";
+const clearCookie=()=>"mt_session=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0";
+const SESSION_SECONDS=30*60;
 const now=()=>Math.floor(Date.now()/1000);
 async function auth(req:Request,env:Env){
  const token=req.headers.get("cookie")?.match(/(?:^|;\s*)mt_session=([a-f0-9]{64})(?:;|$)/)?.[1];if(!token)return null;
@@ -49,13 +52,18 @@ export default {async fetch(req:Request,env:Env):Promise<Response>{
    // Derivación también para usuarios inexistentes: evita respuestas demasiado rápidas.
    const calc=await passwordHash(password,user?.password_salt??"fallback-salt-login",user?.password_iterations??100000);
    if(!user||!user.active||!constant(calc,user.password_hash))return json({error:"Credenciales incorrectas"},401);
-   const token=random(32);await env.DB.prepare("INSERT INTO sessions(id_hash,user_id,expires_at,created_at) VALUES(?,?,?,?)").bind(await digest(token),user.id,now()+86400,now()).run();
-   return json({ok:true,username:user.username},200,{"set-cookie":cookie(token,86400)});
+   const token=random(32),issuedAt=now();
+   // Una sola sesión activa por cuenta: el nuevo login revoca sesiones de otros dispositivos.
+   await env.DB.batch([
+     env.DB.prepare("DELETE FROM sessions WHERE user_id=?").bind(user.id),
+     env.DB.prepare("INSERT INTO sessions(id_hash,user_id,expires_at,created_at) VALUES(?,?,?,?)").bind(await digest(token),user.id,issuedAt+SESSION_SECONDS,issuedAt)
+   ]);
+   return json({ok:true,username:user.username},200,{"set-cookie":cookie(token)});
  }
  if(p==="/api/auth/logout"&&req.method==="POST"){
    const token=req.headers.get("cookie")?.match(/(?:^|;\s*)mt_session=([a-f0-9]{64})(?:;|$)/)?.[1];
    if(token)await env.DB.prepare("DELETE FROM sessions WHERE id_hash=?").bind(await digest(token)).run();
-   return json({ok:true},200,{"set-cookie":cookie("",0)});
+   return json({ok:true},200,{"set-cookie":clearCookie()});
  }
  const user=await auth(req,env);
  if(p==="/api/auth/me")return user?json({authenticated:true,username:user.username,role:user.role}):json({authenticated:false},401);
