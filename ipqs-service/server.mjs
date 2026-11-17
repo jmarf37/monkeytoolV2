@@ -23,9 +23,16 @@ const server=http.createServer(async(req,res)=>{
    url.searchParams.set("allow_public_access_points","true");
    url.searchParams.set("lighter_penalties","true");
    const upstream=await fetch(url,{signal:AbortSignal.timeout(12000)});
-   const data=await upstream.json();
+   // IPQS puede devolver texto plano (por ejemplo "Too Many Requests") en lugar de JSON.
+   // Nunca intentamos parsear la respuesta hasta comprobar el estado y el tipo.
+   if(upstream.status===429)return reply(res,429,{error:"IPQualityScore ha limitado las consultas (HTTP 429). Espera antes de repetir el análisis."});
+   const contentType=upstream.headers.get("content-type")||"";
+   if(!contentType.toLowerCase().includes("json"))return reply(res,upstream.ok?502:upstream.status,{error:"IPQualityScore devolvió una respuesta no JSON (HTTP "+upstream.status+")."});
+   let data;
+   try{data=await upstream.json()}catch{return reply(res,502,{error:"IPQualityScore devolvió JSON inválido (HTTP "+upstream.status+")."})}
    // Whitelist returned fields. No credentials, raw headers or upstream URL exposed.
-   if(!upstream.ok||data.success===false)return reply(res,502,{error:"IPQS: "+String(data.message||"upstream failure").slice(0,180),request_id:typeof data.request_id==="string"?data.request_id.slice(0,60):undefined});
+   if(!upstream.ok||data?.success===false)return reply(res,upstream.status===429?429:502,{error:"IPQS: "+String(data?.message||"upstream failure").slice(0,180),request_id:typeof data?.request_id==="string"?data.request_id.slice(0,60):undefined});
+   if(!data||typeof data!=="object")return reply(res,502,{error:"IPQualityScore devolvió una respuesta inesperada"});
    return reply(res,200,{data:{"Fraud Score":data.fraud_score??null,"Proxy":data.proxy??null,"TOR":data.tor??null,"Recent Abuse":data.recent_abuse??null,"ISP":data.ISP??null,"Organization":data.organization??data.Organization??null,"ASN":data.ASN??null,"Country Code":data.country_code??null,"City":data.city??null,"Region":data.region??null}});
  }catch{return reply(res,502,{error:"IPQS upstream unavailable"})}
 });
