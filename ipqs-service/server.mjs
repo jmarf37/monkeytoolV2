@@ -28,7 +28,7 @@ const server=http.createServer(async(req,res)=>{
    console.info("[IPQS proxy] Estado HTTP de IPQualityScore:",upstream.status);
    if(upstream.status===429){
      const retryAfter=upstream.headers.get("retry-after");
-     if(retryAfter&&/^\\d{1,8}$/.test(retryAfter))console.info("[IPQS proxy] Retry-After (segundos):",retryAfter);
+     if(retryAfter&&/^\d{1,8}$/.test(retryAfter))console.info("[IPQS proxy] Retry-After (segundos):",retryAfter);
    }
    // IPQS puede devolver texto plano (por ejemplo "Too Many Requests") en lugar de JSON.
    // Nunca intentamos parsear la respuesta hasta comprobar el estado y el tipo.
