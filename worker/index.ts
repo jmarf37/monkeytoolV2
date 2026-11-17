@@ -44,7 +44,11 @@ async function ipqs(ip:string,env:Env):Promise<Source>{
      if(url.protocol!=="https:"||!url.hostname.endsWith(".onrender.com")||url.username||url.password||url.search||url.hash)throw new Error("URL de IPQS Proxy no autorizada");
      url.pathname="/lookup";
      const res=await fetch(url.toString(),{method:"POST",headers:{"Authorization":"Bearer "+env.IPQS_PROXY_TOKEN,"Content-Type":"application/json"},body:JSON.stringify({ip}),signal:AbortSignal.timeout(28000)});
-     const payload=await res.json() as {data?:Fields;error?:string;request_id?:string};
+     // Algunos límites de Render o IPQS devuelven texto plano en vez de JSON.
+     if(res.status===429)throw new Error("Límite de peticiones alcanzado en IPQualityScore o su proxy (HTTP 429). Espera antes de volver a consultar.");
+     const raw=await res.text();
+     let payload:{data?:Fields;error?:string;request_id?:string};
+     try{payload=JSON.parse(raw)}catch{throw new Error("IPQS proxy devolvió una respuesta no JSON (HTTP "+res.status+")."+(res.status===503?" Servicio temporalmente no disponible.":""))}
      if(!res.ok)throw new Error(String(payload.error??("IPQS proxy HTTP "+res.status)).slice(0,220)+(payload.request_id?" [request_id: "+payload.request_id.slice(0,60)+"]":""));
      if(!payload.data||typeof payload.data!=="object")throw new Error("Respuesta IPQS proxy inválida");
      return payload.data;
