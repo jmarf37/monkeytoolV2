@@ -59,19 +59,59 @@ async function ipqs(ip:string,env:Env):Promise<Source>{
  return guarded(async()=>{const key=env.IPQ_API!.trim();if(!key)throw new Error("El secreto IPQ_API está vacío");const u=new URL(urls.ipqs+encodeURIComponent(key)+"/"+encodeURIComponent(ip));u.searchParams.set("strictness","1");u.searchParams.set("fast","true");u.searchParams.set("allow_public_access_points","true");u.searchParams.set("lighter_penalties","true");const d=await getJSON(u.toString());if(d.success===false)throw new Error("IPQS: "+String(d.message??"consulta rechazada").slice(0,200)+(typeof d.request_id==="string"?" [request_id: "+d.request_id.replace(/[^a-zA-Z0-9_-]/g,"").slice(0,64)+"]":""));return {"Fraud Score":d.fraud_score,"Proxy":d.proxy,"TOR":d.tor,"Recent Abuse":d.recent_abuse,"ISP":d.ISP,"Organization":d.organization??d.Organization,"ASN":d.ASN,"Country Code":d.country_code,"City":d.city,"Region":d.region};});
 }
 function contact(e:any){const fields=e.vcardArray?.[1]??[];const vals=(name:string)=>fields.filter((f:any)=>f[0]===name).map((f:any)=>Array.isArray(f[3])?f[3].filter(Boolean).join(" "):String(f[3]));return {handle:e.handle,roles:e.roles??[],name:vals("fn")[0],org:vals("org")[0],emails:vals("email"),phones:vals("tel"),addresses:vals("adr")}}
+// RIR real según el origen de la respuesta (puede cambiar tras una redirección).
+function rirFromRdapURL(value:unknown):string|null{
+ if(typeof value!=="string")return null;
+ try{
+  const url=new URL(value);
+  if(url.protocol!=="https:")return null;
+  const names:Record<string,string>={
+   "rdap.arin.net":"ARIN",
+   "rdap.db.ripe.net":"RIPE",
+   "rdap.apnic.net":"APNIC",
+   "rdap.lacnic.net":"LACNIC",
+   "rdap.afrinic.net":"AFRINIC"
+  };
+  return names[url.hostname.toLowerCase()]??null;
+ }catch{return null}
+}
 async function rdap(ip:string):Promise<Source>{
- return guarded(async()=>{const rdapHosts=[
- ["ARIN","https://rdap.arin.net/registry/ip/"],
- ["RIPE","https://rdap.db.ripe.net/ip/"],
- ["APNIC","https://rdap.apnic.net/ip/"],
- ["LACNIC","https://rdap.lacnic.net/rdap/ip/"],
- ["AFRINIC","https://rdap.afrinic.net/rdap/ip/"]
-] as const;
-let d:any=null;let rir="";const failures:string[]=[];
-for(const [name,base] of rdapHosts){try{d=await getJSON(base+encodeURIComponent(ip),{Accept:"application/rdap+json, application/json"});rir=name;break;}catch(e){failures.push(name+": "+(e instanceof Error?e.message:"Error"));}}
-if(!d)throw new Error("Ningún registro RDAP respondió: "+failures.join(" | "));
-const entities=(d.entities??[]).map(contact);const owner=entities.find((e:any)=>e.roles.some((r:string)=>["registrant","administrative"].includes(r)))?.org??d.name??d.handle;const cidrs=(d.cidr0_cidrs??[]).map((c:any)=>c.v4prefix?c.v4prefix+"/"+c.length:c.v6prefix+"/"+c.length).join(", ");
- return {"RIR":rir,"Handle":d.handle,"Name":d.name,"IP Version":d.ipVersion,"Country":d.country,"Start Address":d.startAddress,"End Address":d.endAddress,"CIDR":cidrs||null,"Owner (heuristic)":owner,"Events":(d.events??[]).map((e:any)=>e.eventAction+": "+e.eventDate),"Reference":d.links?.find((x:any)=>x.rel==="self")?.href,"RDAP Contacts":{abuse:entities.filter((e:any)=>e.roles.includes("abuse")),technical:entities.filter((e:any)=>e.roles.includes("technical")),administrative:entities.filter((e:any)=>e.roles.includes("administrative")),registrant:entities.filter((e:any)=>e.roles.includes("registrant"))}};});
+ return guarded(async()=>{
+  const rdapHosts=[
+   ["ARIN","https://rdap.arin.net/registry/ip/"],
+   ["RIPE","https://rdap.db.ripe.net/ip/"],
+   ["APNIC","https://rdap.apnic.net/ip/"],
+   ["LACNIC","https://rdap.lacnic.net/rdap/ip/"],
+   ["AFRINIC","https://rdap.afrinic.net/rdap/ip/"]
+  ] as const;
+  let d:any=null;
+  let responseURL="";
+  const failures:string[]=[];
+  for(const [name,base] of rdapHosts){
+   try{
+    const response=await fetch(base+encodeURIComponent(ip),{
+     headers:{Accept:"application/rdap+json, application/json"},
+     signal:AbortSignal.timeout(12000)
+    });
+    if(!response.ok)throw new Error("HTTP "+response.status);
+    const json=await response.json();
+    if(!json||typeof json!=="object"||Array.isArray(json)||json.objectClassName!=="ip network")
+     throw new Error("Respuesta RDAP de red IP inválida");
+    d=json;
+    responseURL=response.url;
+    break;
+   }catch(e){failures.push(name+": "+(e instanceof Error?e.message:"Error"))}
+  }
+  if(!d)throw new Error("Ningún registro RDAP respondió: "+failures.join(" | "));
+  const reference=Array.isArray(d.links)?d.links.find((link:any)=>link?.rel==="self"&&typeof link?.href==="string")?.href:undefined;
+  // La referencia self de la respuesta prevalece. Si no es reconocible, usamos
+  // el destino HTTP final, nunca el servidor inicial del bucle.
+  const rir=rirFromRdapURL(reference)??rirFromRdapURL(responseURL)??"No determinado";
+  const entities=(d.entities??[]).map(contact);
+  const owner=entities.find((e:any)=>e.roles.some((r:string)=>["registrant","administrative"].includes(r)))?.org??d.name??d.handle;
+  const cidrs=(d.cidr0_cidrs??[]).map((c:any)=>c.v4prefix?c.v4prefix+"/"+c.length:c.v6prefix+"/"+c.length).join(", ");
+  return {"RIR":rir,"Handle":d.handle,"Name":d.name,"IP Version":d.ipVersion,"Country":d.country,"Start Address":d.startAddress,"End Address":d.endAddress,"CIDR":cidrs||null,"Owner (heuristic)":owner,"Events":(d.events??[]).map((e:any)=>e.eventAction+": "+e.eventDate),"Reference":reference??responseURL,"RDAP Contacts":{abuse:entities.filter((e:any)=>e.roles.includes("abuse")),technical:entities.filter((e:any)=>e.roles.includes("technical")),administrative:entities.filter((e:any)=>e.roles.includes("administrative")),registrant:entities.filter((e:any)=>e.roles.includes("registrant"))}};
+ });
 }
 async function blacklist(ip:string,env:Env):Promise<Source>{
  return guarded(async()=>{const url=env.BLACKLIST_URL||DEFAULT_BLACKLIST;const res=await fetch(url,{signal:AbortSignal.timeout(12000)});if(!res.ok)throw new Error("HTTP "+res.status);const content=await res.text();if(content.length>8_000_000)throw new Error("Lista demasiado grande para consulta directa");const found=content.split(/\r?\n/).some(line=>line.split("#")[0].split(/[\s,;]+/).includes(ip));return {"Blacklist (S2Grupo)":found?"Sí":"No","Blacklist Fuente":"S2Grupo IP_list.txt","Blacklist Consultada":new Date().toISOString()};});
