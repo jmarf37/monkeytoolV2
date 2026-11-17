@@ -16,6 +16,8 @@ const server=http.createServer(async(req,res)=>{
  let buffer="";for await(const part of req){buffer+=part;if(buffer.length>1024)return reply(res,413,{error:"Too large"})}
  let ip;try{ip=JSON.parse(buffer).ip}catch{return reply(res,400,{error:"Invalid JSON"})}
  if(typeof ip!=="string"||!validIP(ip))return reply(res,400,{error:"Invalid IP address (IPv4 or IPv6)"});
+ // Diagnóstico sin registrar IP analizada, API key ni cabeceras de autenticación.
+ console.info("[IPQS proxy] Consulta autorizada recibida");
  try{
    const url=new URL("https://www.ipqualityscore.com/api/json/ip/"+encodeURIComponent(key)+"/"+encodeURIComponent(ip));
    url.searchParams.set("strictness","1");
@@ -23,6 +25,11 @@ const server=http.createServer(async(req,res)=>{
    url.searchParams.set("allow_public_access_points","true");
    url.searchParams.set("lighter_penalties","true");
    const upstream=await fetch(url,{signal:AbortSignal.timeout(12000)});
+   console.info("[IPQS proxy] Estado HTTP de IPQualityScore:",upstream.status);
+   if(upstream.status===429){
+     const retryAfter=upstream.headers.get("retry-after");
+     if(retryAfter&&/^\\d{1,8}$/.test(retryAfter))console.info("[IPQS proxy] Retry-After (segundos):",retryAfter);
+   }
    // IPQS puede devolver texto plano (por ejemplo "Too Many Requests") en lugar de JSON.
    // Nunca intentamos parsear la respuesta hasta comprobar el estado y el tipo.
    if(upstream.status===429)return reply(res,429,{error:"IPQualityScore ha limitado las consultas (HTTP 429). Espera antes de repetir el análisis."});
@@ -34,6 +41,9 @@ const server=http.createServer(async(req,res)=>{
    if(!upstream.ok||data?.success===false)return reply(res,upstream.status===429?429:502,{error:"IPQS: "+String(data?.message||"upstream failure").slice(0,180),request_id:typeof data?.request_id==="string"?data.request_id.slice(0,60):undefined});
    if(!data||typeof data!=="object")return reply(res,502,{error:"IPQualityScore devolvió una respuesta inesperada"});
    return reply(res,200,{data:{"Fraud Score":data.fraud_score??null,"Proxy":data.proxy??null,"TOR":data.tor??null,"Recent Abuse":data.recent_abuse??null,"ISP":data.ISP??null,"Organization":data.organization??data.Organization??null,"ASN":data.ASN??null,"Country Code":data.country_code??null,"City":data.city??null,"Region":data.region??null}});
- }catch{return reply(res,502,{error:"IPQS upstream unavailable"})}
+ }catch(error){
+   console.warn("[IPQS proxy] Error de conexión al proveedor:",error instanceof Error?error.name:"Unknown");
+   return reply(res,502,{error:"IPQS upstream unavailable"});
+ }
 });
 server.listen(port,"0.0.0.0");
